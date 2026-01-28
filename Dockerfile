@@ -51,6 +51,13 @@ COPY --from=build /app/lightning-engine/webservice/quarkus-web-api/target/quarku
 COPY --from=build /app/lightning-engine/webservice/quarkus-web-api/target/quarkus-app/app/ ./app/
 COPY --from=build /app/lightning-engine/webservice/quarkus-web-api/target/quarkus-app/quarkus/ ./quarkus/
 
+# Copy extension modules
+RUN mkdir -p /app/modules
+COPY --from=build /app/lightning-engine-extensions/modules/entity-module/target/*.jar ./modules/
+COPY --from=build /app/lightning-engine-extensions/modules/rigid-body-module/target/*.jar ./modules/
+COPY --from=build /app/lightning-engine-extensions/modules/grid-map-module/target/*.jar ./modules/
+COPY --from=build /app/lightning-engine-extensions/modules/rendering-module/target/*.jar ./modules/
+
 RUN chown -R quarkus:quarkus /app
 USER quarkus
 

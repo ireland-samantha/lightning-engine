@@ -4,19 +4,46 @@ Full API documentation: [openapi.yaml](../openapi.yaml)
 
 Postman collection: [postman-collection.json](../postman-collection.json)
 
+## Overview
+
+Lightning Engine provides two API surfaces:
+
+1. **Lightning Engine API** (default port 8080) - Container and game management
+2. **Control Plane API** (default port 8081) - Cluster orchestration
+
 ## Authentication
 
-All endpoints (except `/api/auth/login`) require JWT authentication. Include the token in the `Authorization` header:
+### JWT Authentication
+
+All Lightning Engine endpoints (except `/api/auth/login` and `/api/health`) require JWT authentication.
+
+**Roles:**
+- `admin` - Full access to all operations
+- `command_manager` - Can manage matches, commands, and sessions
+- `view_only` - Read-only access
+
+Include the token in the `Authorization` header:
 
 ```bash
 curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/api/...
 ```
 
+### Control Plane Authentication
+
+Control Plane node operations use the `X-Control-Plane-Token` header:
+
+```bash
+curl -H "X-Control-Plane-Token: YOUR_TOKEN" http://localhost:8081/api/nodes/...
+```
+
+---
+
 ## Endpoints Summary
+
+### Authentication & Users
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| **Authentication** ||||
 | POST | `/api/auth/login` | Login and get JWT token | None |
 | POST | `/api/auth/refresh` | Refresh token | Any |
 | GET | `/api/auth/me` | Get current user info | Any |
@@ -24,82 +51,249 @@ curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/api/...
 | GET | `/api/auth/users` | List all users | admin |
 | POST | `/api/auth/users` | Create user | admin |
 | GET | `/api/auth/users/{id}` | Get user by ID | admin |
+| GET | `/api/auth/users/username/{username}` | Get user by username | admin |
 | PUT | `/api/auth/users/{id}/password` | Update password | admin |
 | PUT | `/api/auth/users/{id}/roles` | Update user roles | admin |
+| POST | `/api/auth/users/{id}/roles/{roleName}` | Add role to user | admin |
+| DELETE | `/api/auth/users/{id}/roles/{roleName}` | Remove role from user | admin |
+| PUT | `/api/auth/users/{id}/enabled` | Enable/disable user | admin |
 | DELETE | `/api/auth/users/{id}` | Delete user | admin |
 | **Role Management** ||||
 | GET | `/api/auth/roles` | List all roles | Any |
 | POST | `/api/auth/roles` | Create role | admin |
 | GET | `/api/auth/roles/{id}` | Get role by ID | Any |
+| GET | `/api/auth/roles/name/{roleName}` | Get role by name | Any |
+| PUT | `/api/auth/roles/{id}/description` | Update description | admin |
 | PUT | `/api/auth/roles/{id}/includes` | Update role hierarchy | admin |
 | DELETE | `/api/auth/roles/{id}` | Delete role | admin |
-| **Containers** ||||
+
+### Health
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/health` | Health check | None |
+
+### Containers
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
 | GET | `/api/containers` | List all containers | Any |
 | POST | `/api/containers` | Create container | admin |
 | GET | `/api/containers/{id}` | Get container details | Any |
 | DELETE | `/api/containers/{id}` | Delete container | admin |
-| POST | `/api/containers/{id}/start` | Start container | admin, command_manager |
-| POST | `/api/containers/{id}/stop` | Stop container | admin, command_manager |
-| POST | `/api/containers/{id}/pause` | Pause container | admin, command_manager |
-| POST | `/api/containers/{id}/resume` | Resume container | admin, command_manager |
-| GET | `/api/containers/{id}/tick` | Get container tick | Any |
+| POST | `/api/containers/{id}/start` | Start container | admin |
+| POST | `/api/containers/{id}/stop` | Stop container | admin |
+| POST | `/api/containers/{id}/pause` | Pause container | admin |
+| POST | `/api/containers/{id}/resume` | Resume container | admin |
+| GET | `/api/containers/{id}/stats` | Get container statistics | Any |
+
+### Simulation Control
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/containers/{id}/tick` | Get current tick | Any |
 | POST | `/api/containers/{id}/tick` | Advance one tick | admin, command_manager |
 | POST | `/api/containers/{id}/play?intervalMs=16` | Start auto-advance | admin, command_manager |
 | POST | `/api/containers/{id}/stop-auto` | Stop auto-advance | admin, command_manager |
-| **Container Commands** ||||
+| GET | `/api/containers/{id}/status` | Get playback status | Any |
+
+### Container Matches
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/containers/{id}/matches` | List matches in container | Any |
+| POST | `/api/containers/{id}/matches` | Create match in container | admin |
+| GET | `/api/containers/{id}/matches/{matchId}` | Get match details | Any |
+| DELETE | `/api/containers/{id}/matches/{matchId}` | Delete match | admin |
+
+### Container Commands
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
 | GET | `/api/containers/{id}/commands` | List available commands | Any |
 | POST | `/api/containers/{id}/commands` | Queue command for next tick | admin, command_manager |
 | WS | `/containers/{id}/commands?token=xxx` | Submit commands via WebSocket (Protobuf) | admin, command_manager |
-| **Container Matches** ||||
-| GET | `/api/containers/{id}/matches` | List matches in container | Any |
-| POST | `/api/containers/{id}/matches` | Create match in container | admin, command_manager |
-| GET | `/api/containers/{id}/matches/{matchId}` | Get match details | Any |
-| DELETE | `/api/containers/{id}/matches/{matchId}` | Delete match | admin |
-| GET | `/api/containers/{id}/matches/{matchId}/snapshot` | Get match snapshot | Any |
-| **Container Players** ||||
-| GET | `/api/containers/{id}/players` | List players in container | Any |
-| POST | `/api/containers/{id}/players` | Create player | admin, command_manager |
-| GET | `/api/containers/{id}/players/{playerId}` | Get player | Any |
-| DELETE | `/api/containers/{id}/players/{playerId}` | Delete player | admin |
-| **Container Sessions** ||||
-| GET | `/api/containers/{id}/sessions` | List active sessions | Any |
-| POST | `/api/containers/{id}/sessions/connect` | Connect player to session | admin, command_manager |
-| POST | `/api/containers/{id}/sessions/disconnect` | Disconnect player | admin, command_manager |
-| **Container Snapshots** ||||
+
+### Container Modules
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/containers/{id}/modules` | List modules in container | Any |
+| POST | `/api/containers/{id}/modules/reload` | Reload modules | admin |
+
+### Container Snapshots
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
 | GET | `/api/containers/{id}/matches/{matchId}/snapshot` | Get full snapshot | Any |
-| GET | `/api/containers/{id}/matches/{matchId}/delta` | Get delta snapshot | Any |
+| GET | `/api/containers/{id}/matches/{matchId}/snapshots/delta` | Get delta snapshot | Any |
+| POST | `/api/containers/{id}/matches/{matchId}/snapshots/record` | Record snapshot to history | admin, command_manager |
+| GET | `/api/containers/{id}/matches/{matchId}/snapshots/history-info` | Get history info | Any |
+| DELETE | `/api/containers/{id}/matches/{matchId}/snapshots/history` | Clear snapshot history | admin |
 | WS | `/ws/containers/{id}/snapshots/{matchId}` | Stream snapshots | Any |
 | WS | `/ws/containers/{id}/snapshots/delta/{matchId}` | Stream delta snapshots | Any |
-| **Container History (MongoDB)** ||||
+
+### Container History (MongoDB)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/containers/{id}/history` | Get container history summary | Any |
 | GET | `/api/containers/{id}/matches/{matchId}/history` | Get match history summary | Any |
 | GET | `/api/containers/{id}/matches/{matchId}/history/snapshots` | Get snapshots in range | Any |
-| GET | `/api/containers/{id}/matches/{matchId}/history/snapshots/latest` | Get latest snapshots | Any |
+| GET | `/api/containers/{id}/matches/{matchId}/history/snapshots/latest` | Get latest N snapshots | Any |
+| GET | `/api/containers/{id}/matches/{matchId}/history/snapshots/{tick}` | Get snapshot at tick | Any |
 | DELETE | `/api/containers/{id}/matches/{matchId}/history` | Delete match history | admin |
-| **Container Restore** ||||
+| DELETE | `/api/containers/{id}/matches/{matchId}/history/older-than/{tick}` | Delete old snapshots | admin |
+
+### Container Restore
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
 | GET | `/api/containers/{id}/matches/{matchId}/restore/available` | Check if restore available | Any |
 | POST | `/api/containers/{id}/matches/{matchId}/restore` | Restore match to tick | admin |
 | POST | `/api/containers/{id}/restore/all` | Restore all matches | admin |
 | GET | `/api/containers/{id}/restore/config` | Get restore configuration | Any |
-| **Container Modules** ||||
-| GET | `/api/containers/{id}/modules` | List modules in container | Any |
-| POST | `/api/containers/{id}/modules/reload` | Reload modules | admin |
-| **Modules (Global)** ||||
+
+### Container Sessions
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/containers/{id}/sessions` | List all container sessions | Any |
+| GET | `/api/containers/{id}/matches/{matchId}/sessions` | List sessions for match | Any |
+| POST | `/api/containers/{id}/matches/{matchId}/sessions` | Connect player to session | admin, command_manager |
+| GET | `/api/containers/{id}/matches/{matchId}/sessions/active` | List active sessions | Any |
+| GET | `/api/containers/{id}/matches/{matchId}/sessions/{playerId}` | Get player session | Any |
+| POST | `/api/containers/{id}/matches/{matchId}/sessions/{playerId}/reconnect` | Reconnect session | admin, command_manager |
+| POST | `/api/containers/{id}/matches/{matchId}/sessions/{playerId}/disconnect` | Disconnect session | admin, command_manager |
+| POST | `/api/containers/{id}/matches/{matchId}/sessions/{playerId}/abandon` | Abandon session | admin, command_manager |
+| GET | `/api/containers/{id}/matches/{matchId}/sessions/{playerId}/can-reconnect` | Check reconnect capability | Any |
+
+### Container Players
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/containers/{id}/players` | List players in container | Any |
+| POST | `/api/containers/{id}/players` | Create player | admin |
+| GET | `/api/containers/{id}/players/{playerId}` | Get player | Any |
+| DELETE | `/api/containers/{id}/players/{playerId}` | Delete player | admin |
+| GET | `/api/containers/{id}/matches/{matchId}/players` | List players in match | Any |
+| POST | `/api/containers/{id}/matches/{matchId}/players` | Join player to match | admin |
+| GET | `/api/containers/{id}/matches/{matchId}/players/{playerId}` | Get player in match | Any |
+| DELETE | `/api/containers/{id}/matches/{matchId}/players/{playerId}` | Remove player from match | admin |
+
+### Container Metrics
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/containers/{id}/metrics` | Get container metrics | Any |
+| POST | `/api/containers/{id}/metrics/reset` | Reset metrics | admin |
+
+### Container Resources
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/containers/{id}/resources` | List resources in container | Any |
+| POST | `/api/containers/{id}/resources` | Upload resource to container | admin |
+| GET | `/api/containers/{id}/resources/{resourceId}` | Get resource metadata | Any |
+| DELETE | `/api/containers/{id}/resources/{resourceId}` | Delete resource | admin |
+
+### Container AI
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/containers/{id}/ai` | List available AI backends | Any |
+
+### Modules (Global)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
 | GET | `/api/modules` | List installed modules | Any |
 | GET | `/api/modules/{name}` | Get module details | Any |
 | POST | `/api/modules/upload` | Upload module JAR | admin |
 | POST | `/api/modules/reload` | Reload all modules | admin |
 | DELETE | `/api/modules/{name}` | Uninstall module | admin |
-| **Container Resources** ||||
-| GET | `/api/containers/{id}/resources` | List resources in container | Any |
-| POST | `/api/containers/{id}/resources` | Upload resource to container | admin |
-| GET | `/api/containers/{id}/resources/{resourceId}` | Get resource metadata | Any |
-| DELETE | `/api/containers/{id}/resources/{resourceId}` | Delete resource | admin |
-| **AI (Global)** ||||
-| GET | `/api/ai` | List installed AIs | Any |
-| POST | `/api/ai/upload` | Upload AI JAR | admin |
-| POST | `/api/ai/reload` | Reload all AIs | admin |
 
-## Authentication
+### AI (Global)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/ai` | List installed AI backends | Any |
+| GET | `/api/ai/{name}` | Get AI details | Any |
+| POST | `/api/ai/upload` | Upload AI JAR | admin |
+| POST | `/api/ai/reload` | Reload all AI backends | admin |
+| DELETE | `/api/ai/{name}` | Uninstall AI backend | admin |
+
+### Node (Self-Reporting)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/node/metrics` | Get node metrics | None |
+| GET | `/api/node/status` | Get node registration status | None |
+
+---
+
+## Control Plane Endpoints
+
+### Node Management
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/api/nodes/register` | Register a node | X-Control-Plane-Token |
+| PUT | `/api/nodes/{nodeId}/heartbeat` | Send heartbeat | X-Control-Plane-Token |
+| POST | `/api/nodes/{nodeId}/drain` | Mark node as draining | X-Control-Plane-Token |
+| DELETE | `/api/nodes/{nodeId}` | Deregister node | X-Control-Plane-Token |
+
+### Cluster Status
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/cluster/nodes` | List all cluster nodes | None |
+| GET | `/api/cluster/nodes/{nodeId}` | Get node by ID | None |
+| GET | `/api/cluster/status` | Get cluster health overview | None |
+
+### Match Routing
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/api/matches/create` | Create match on best node | None |
+| GET | `/api/matches` | List all matches | None |
+| GET | `/api/matches/{matchId}` | Get match details | None |
+| DELETE | `/api/matches/{matchId}` | Delete match | None |
+| POST | `/api/matches/{matchId}/finish` | Mark match as finished | None |
+| PUT | `/api/matches/{matchId}/players` | Update player count | None |
+
+### Module Registry
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/modules` | List all modules in registry | None |
+| POST | `/api/modules` | Upload module to registry | None |
+| GET | `/api/modules/{name}` | List module versions | None |
+| GET | `/api/modules/{name}/{version}` | Get module metadata | None |
+| GET | `/api/modules/{name}/{version}/download` | Download module JAR | None |
+| DELETE | `/api/modules/{name}/{version}` | Delete module version | None |
+| POST | `/api/modules/{name}/{version}/distribute` | Distribute to all nodes | None |
+| POST | `/api/modules/{name}/{version}/distribute/{nodeId}` | Distribute to specific node | None |
+
+### Autoscaler
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/autoscaler/recommendation` | Get scaling recommendation | None |
+| POST | `/api/autoscaler/acknowledge` | Acknowledge scaling action | None |
+| GET | `/api/autoscaler/status` | Get autoscaler status | None |
+
+### Dashboard
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/dashboard/overview` | Get cluster overview | None |
+| GET | `/api/dashboard/nodes` | Get paginated nodes | None |
+| GET | `/api/dashboard/matches` | Get paginated matches | None |
+
+---
+
+## Authentication Examples
 
 ### Login
 
@@ -110,8 +304,7 @@ curl -X POST http://localhost:8080/api/auth/login \
 
 # Response:
 # {
-#   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-#   "userId": 1,
+#   "jwtToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
 #   "username": "admin",
 #   "roles": ["admin"],
 #   "expiresAt": "2024-01-11T00:00:00Z"
@@ -149,6 +342,8 @@ curl -X POST http://localhost:8080/api/auth/roles \
   -H "Content-Type: application/json" \
   -d '{"name": "game_operator", "description": "Can manage games", "includedRoles": ["command_manager"]}'
 ```
+
+---
 
 ## Offline Token CLI (issue-api-token)
 
@@ -196,7 +391,9 @@ TOKEN=$(java -jar issue-api-token.jar --roles=admin --secret=$JWT_SECRET)
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/containers
 ```
 
-## Containers
+---
+
+## Container Examples
 
 Execution Containers provide isolated runtime environments with ClassLoader isolation, independent game loops, and container-scoped matches.
 
@@ -206,7 +403,12 @@ Execution Containers provide isolated runtime environments with ClassLoader isol
 curl -X POST http://localhost:8080/api/containers \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name": "my-game-server"}'
+  -d '{
+    "name": "my-game-server",
+    "maxEntities": 10000,
+    "maxMemoryMb": 512,
+    "moduleNames": ["EntityModule", "RigidBodyModule"]
+  }'
 
 # Response:
 # {
@@ -226,7 +428,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/containers
 # Response: [{"id": 1, "name": "my-game-server", "status": "CREATED"}, ...]
 ```
 
-### Start/Stop Container
+### Start/Stop/Pause/Resume Container
 
 ```bash
 # Start container
@@ -246,17 +448,37 @@ curl -X POST http://localhost:8080/api/containers/1/resume \
   -H "Authorization: Bearer $TOKEN"
 ```
 
+### Get Container Statistics
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/containers/1/stats
+
+# Response:
+# {
+#   "entityCount": 150,
+#   "maxEntities": 10000,
+#   "usedMemoryBytes": 52428800,
+#   "maxMemoryBytes": 536870912,
+#   "matchCount": 3,
+#   "moduleCount": 5
+# }
+```
+
+---
+
+## Simulation Control Examples
+
 ### Tick Control
 
 ```bash
 # Get current tick
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/containers/1/tick
-# Response: {"tick": 42, "status": "RUNNING"}
+# Response: {"currentTick": 42}
 
 # Advance one tick
 curl -X POST http://localhost:8080/api/containers/1/tick \
   -H "Authorization: Bearer $TOKEN"
-# Response: {"tick": 43}
+# Response: {"currentTick": 43}
 
 # Start auto-advance at 60 FPS
 curl -X POST "http://localhost:8080/api/containers/1/play?intervalMs=16" \
@@ -265,58 +487,79 @@ curl -X POST "http://localhost:8080/api/containers/1/play?intervalMs=16" \
 # Stop auto-advance
 curl -X POST http://localhost:8080/api/containers/1/stop-auto \
   -H "Authorization: Bearer $TOKEN"
+
+# Get playback status
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/containers/1/status
+# Response: {"isPlaying": true, "currentTick": 100, "interval": 16}
 ```
 
-### Container Matches
+---
+
+## Match Examples
+
+### Create Match in Container
 
 ```bash
-# Create match in container
 curl -X POST http://localhost:8080/api/containers/1/matches \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "enabledModuleNames": ["EntityModule", "RigidBodyModule", "RenderingModule"]
+    "enabledModuleNames": ["EntityModule", "RigidBodyModule", "RenderingModule"],
+    "enabledAINames": ["BasicAI"]
   }'
 # Response: {"id": 1, "containerId": 1, "enabledModuleNames": [...]}
+```
 
-# List matches in container
+### List Matches in Container
+
+```bash
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/containers/1/matches
+```
 
-# Delete match
+### Delete Match
+
+```bash
 curl -X DELETE http://localhost:8080/api/containers/1/matches/1 \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-### Container Commands
+---
+
+## Command Examples
+
+### List Available Commands
 
 ```bash
-# List available commands
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/containers/1/commands
-# Response: [{"name": "spawn", "schema": {...}}, ...]
+# Response:
+# [
+#   {"name": "spawn", "description": "Spawn entity", "module": "EntityModule", "parameters": [...]},
+#   {"name": "move", "description": "Move entity", "module": "MoveModule", "parameters": [...]}
+# ]
+```
 
-# Queue command
+### Queue Command
+
+```bash
 curl -X POST http://localhost:8080/api/containers/1/commands \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "commandName": "spawn",
-    "payload": {
+    "parameters": {
       "matchId": 1,
       "entityType": 1,
       "playerId": 1
     }
   }'
+# Response: 202 Accepted
 ```
 
 ### WebSocket Command Endpoint
 
-For high-performance command submission, use the WebSocket endpoint. Commands are sent as Protocol Buffer binary messages.
+For high-performance command submission, use the WebSocket endpoint with Protocol Buffer messages.
 
 **Endpoint:** `ws://localhost:8080/containers/{id}/commands?token=xxx`
-
-**Authentication:** JWT token is passed as a query parameter (since WebSocket API doesn't support custom headers). The token must have `admin` or `command_manager` role.
-
-**Protocol:** Binary Protocol Buffer messages using the `CommandRequest` and `CommandResponse` message types.
 
 ```javascript
 // JavaScript WebSocket example
@@ -330,7 +573,6 @@ ws.onopen = () => {
 };
 
 ws.onmessage = (event) => {
-  // Parse Protocol Buffer response
   const response = CommandResponse.decode(new Uint8Array(event.data));
   console.log(`Command ${response.commandName}: ${response.status}`);
 };
@@ -340,97 +582,106 @@ const request = CommandRequest.create({
   commandName: 'spawn',
   matchId: 1,
   playerId: 1,
-  spawn: {
-    entityType: 100,
-    positionX: 10,
-    positionY: 20
-  }
+  spawn: { entityType: 100, positionX: 10, positionY: 20 }
 });
 ws.send(CommandRequest.encode(request).finish());
 ```
 
-```java
-// Java client example
-CommandWebSocketClient client = CommandWebSocketClient.connect(
-    "http://localhost:8080", containerId, token);
+---
 
-// Send spawn command
-client.spawn(matchId, playerId, entityType, posX, posY);
+## Player & Session Examples
 
-// Send attach rigid body command
-client.attachRigidBody(matchId, playerId, entityId, mass, posX, posY, velX, velY);
-
-// Send attach sprite command
-client.attachSprite(matchId, playerId, entityId, resourceId, width, height, visible);
-
-client.close();
-```
-
-**Protocol Buffer Schema:**
-
-```protobuf
-message CommandRequest {
-  string command_name = 1;
-  int64 match_id = 2;
-  int64 player_id = 3;
-
-  oneof payload {
-    SpawnPayload spawn = 10;
-    AttachRigidBodyPayload attach_rigid_body = 11;
-    AttachSpritePayload attach_sprite = 12;
-    GenericPayload generic = 13;
-  }
-}
-
-message CommandResponse {
-  Status status = 1;
-  string message = 2;
-  string command_name = 3;
-
-  enum Status {
-    UNKNOWN = 0;
-    ACCEPTED = 1;
-    ERROR = 2;
-    INVALID = 3;
-  }
-}
-```
-
-### Container Players and Sessions
+### Create Player
 
 ```bash
-# Create player in container
 curl -X POST http://localhost:8080/api/containers/1/players \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Player1"}'
-
-# List players
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/containers/1/players
-
-# Connect player to session
-curl -X POST http://localhost:8080/api/containers/1/sessions/connect \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"playerId": 1, "matchId": 1}'
-
-# List active sessions
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/containers/1/sessions
+  -d '{}'
+# Response: {"id": 1}
 ```
 
-### Container Snapshots
+### Join Player to Match
 
 ```bash
-# Get match snapshot
+curl -X POST http://localhost:8080/api/containers/1/matches/1/players \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"playerId": 1}'
+```
+
+### Connect Session
+
+```bash
+curl -X POST http://localhost:8080/api/containers/1/matches/1/sessions \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"playerId": 1}'
+```
+
+### Disconnect/Reconnect Session
+
+```bash
+# Disconnect
+curl -X POST http://localhost:8080/api/containers/1/matches/1/sessions/1/disconnect \
+  -H "Authorization: Bearer $TOKEN"
+
+# Check if can reconnect
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/containers/1/matches/1/sessions/1/can-reconnect
+# Response: {"canReconnect": true}
+
+# Reconnect
+curl -X POST http://localhost:8080/api/containers/1/matches/1/sessions/1/reconnect \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## Snapshot Examples
+
+### Get Match Snapshot
+
+```bash
 curl -H "Authorization: Bearer $TOKEN" \
   http://localhost:8080/api/containers/1/matches/1/snapshot
 
-# Get delta snapshot
-curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8080/api/containers/1/matches/1/delta?fromTick=100&toTick=105"
+# Response:
+# {
+#   "matchId": 1,
+#   "tick": 42,
+#   "data": {
+#     "EntityModule": {
+#       "POSITION_X": [100.0, 200.0, 150.0],
+#       "POSITION_Y": [50.0, 75.0, 100.0]
+#     },
+#     "HealthModule": {
+#       "HEALTH": [100.0, 80.0, 50.0]
+#     }
+#   }
+# }
 ```
 
-### WebSocket Streaming (Container-Scoped)
+### Get Delta Snapshot
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8080/api/containers/1/matches/1/snapshots/delta?fromTick=100&toTick=105"
+
+# Response:
+# {
+#   "matchId": 1,
+#   "fromTick": 100,
+#   "toTick": 105,
+#   "changedComponents": {...},
+#   "addedEntities": [10, 11],
+#   "removedEntities": [5],
+#   "changeCount": 15,
+#   "compressionRatio": 0.12
+# }
+```
+
+### WebSocket Streaming
 
 ```javascript
 // Full snapshots
@@ -448,7 +699,32 @@ wsDelta.onmessage = (event) => {
 };
 ```
 
-### Match Restore
+---
+
+## History & Restore Examples
+
+### Get Match History
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/containers/1/matches/1/history
+```
+
+### Get Snapshots in Range
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8080/api/containers/1/matches/1/history/snapshots?fromTick=0&toTick=100&limit=50"
+```
+
+### Get Latest Snapshots
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8080/api/containers/1/matches/1/history/snapshots/latest?limit=10"
+```
+
+### Restore Match
 
 ```bash
 # Check if restore is available
@@ -456,11 +732,11 @@ curl -H "Authorization: Bearer $TOKEN" \
   http://localhost:8080/api/containers/1/matches/1/restore/available
 # Response: {"matchId": 1, "canRestore": true}
 
-# Restore match to specific tick
-curl -X POST http://localhost:8080/api/containers/1/matches/1/restore?tick=100 \
+# Restore to specific tick
+curl -X POST "http://localhost:8080/api/containers/1/matches/1/restore?tick=100" \
   -H "Authorization: Bearer $TOKEN"
 
-# Restore match to latest snapshot (tick=-1)
+# Restore to latest snapshot (tick=-1)
 curl -X POST http://localhost:8080/api/containers/1/matches/1/restore \
   -H "Authorization: Bearer $TOKEN"
 
@@ -469,52 +745,39 @@ curl -X POST http://localhost:8080/api/containers/1/restore/all \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-### Match History
+---
 
-```bash
-# Get match history summary
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/containers/1/matches/1/history
-
-# Get snapshots in tick range
-curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8080/api/containers/1/matches/1/history/snapshots?fromTick=0&toTick=100&limit=50"
-
-# Get latest snapshots
-curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8080/api/containers/1/matches/1/history/snapshots/latest?limit=10"
-
-# Delete match history
-curl -X DELETE http://localhost:8080/api/containers/1/matches/1/history \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-## Modules
+## Module Examples
 
 ### Upload Module
 
 ```bash
 curl -X POST http://localhost:8080/api/modules/upload \
+  -H "Authorization: Bearer $TOKEN" \
   -F "file=@target/my-module.jar"
 ```
 
 ### Reload Modules
 
 ```bash
-curl -X POST http://localhost:8080/api/modules/reload
+curl -X POST http://localhost:8080/api/modules/reload \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ### List Modules
 
 ```bash
-curl http://localhost:8080/api/modules
-# Response: [
-#   {"name": "EntityModule", "components": 3, "systems": 0, "commands": 1},
-#   ...
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/modules
+# Response:
+# [
+#   {"moduleName": "EntityModule", "flagComponentName": "ENTITY_FLAG", "enabledMatches": 3},
+#   {"moduleName": "RigidBodyModule", "flagComponentName": "RIGID_BODY_FLAG", "enabledMatches": 2}
 # ]
 ```
 
-## Container Resources
+---
+
+## Resource Examples
 
 Resources are container-scoped. Each container has its own isolated resource storage.
 
@@ -533,13 +796,6 @@ curl -X POST http://localhost:8080/api/containers/1/resources \
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/containers/1/resources
-# Response: [{"resourceId": 1, "resourceName": "player-sprite", "resourceType": "TEXTURE"}, ...]
-```
-
-### Get Resource
-
-```bash
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/containers/1/resources/1
 ```
 
 ### Delete Resource
@@ -547,4 +803,140 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/containers/1/re
 ```bash
 curl -X DELETE -H "Authorization: Bearer $TOKEN" \
   http://localhost:8080/api/containers/1/resources/1
+```
+
+---
+
+## AI Examples
+
+### List AI Backends
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/ai
+# Response:
+# [
+#   {"aiName": "BasicAI", "enabledMatches": 2},
+#   {"aiName": "AdvancedAI", "enabledMatches": 1}
+# ]
+```
+
+### Upload AI JAR
+
+```bash
+curl -X POST http://localhost:8080/api/ai/upload \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@my-ai.jar"
+```
+
+---
+
+## Control Plane Examples
+
+### Register Node
+
+```bash
+curl -X POST http://localhost:8081/api/nodes/register \
+  -H "X-Control-Plane-Token: $CP_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nodeId": "node-1",
+    "advertiseAddress": "http://192.168.1.10:8080",
+    "capacity": {"maxContainers": 10}
+  }'
+```
+
+### Send Heartbeat
+
+```bash
+curl -X PUT http://localhost:8081/api/nodes/node-1/heartbeat \
+  -H "X-Control-Plane-Token: $CP_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "metrics": {
+      "containerCount": 3,
+      "matchCount": 15,
+      "cpuUsage": 45.5,
+      "memoryUsedMb": 2048,
+      "memoryMaxMb": 8192
+    }
+  }'
+```
+
+### Get Cluster Status
+
+```bash
+curl http://localhost:8081/api/cluster/status
+# Response:
+# {
+#   "totalNodes": 5,
+#   "healthyNodes": 4,
+#   "drainingNodes": 1,
+#   "totalCapacity": 50,
+#   "usedCapacity": 23,
+#   "averageSaturation": 0.46
+# }
+```
+
+### Create Match via Control Plane
+
+```bash
+curl -X POST http://localhost:8081/api/matches/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "moduleNames": ["EntityModule", "RigidBodyModule"],
+    "preferredNodeId": "node-1"
+  }'
+# Response:
+# {
+#   "matchId": "abc-123",
+#   "nodeId": "node-1",
+#   "status": "RUNNING",
+#   "advertiseAddress": "http://192.168.1.10:8080",
+#   "websocketUrl": "ws://192.168.1.10:8080/ws/containers/1/snapshots/1"
+# }
+```
+
+### Upload Module to Registry
+
+```bash
+curl -X POST http://localhost:8081/api/modules \
+  -F "name=MyModule" \
+  -F "version=1.0.0" \
+  -F "description=My custom module" \
+  -F "file=@my-module.jar"
+```
+
+### Distribute Module to All Nodes
+
+```bash
+curl -X POST http://localhost:8081/api/modules/MyModule/1.0.0/distribute
+# Response: {"moduleName": "MyModule", "moduleVersion": "1.0.0", "nodesUpdated": 5}
+```
+
+### Get Scaling Recommendation
+
+```bash
+curl http://localhost:8081/api/autoscaler/recommendation
+# Response:
+# {
+#   "action": "SCALE_UP",
+#   "suggestedNodeCount": 7,
+#   "reason": "High cluster saturation (85%)",
+#   "currentSaturation": 0.85,
+#   "targetSaturation": 0.70
+# }
+```
+
+### Get Dashboard Overview
+
+```bash
+curl http://localhost:8081/api/dashboard/overview
+# Response:
+# {
+#   "clusterHealth": {"status": "HEALTHY", "healthyNodes": 4, "totalNodes": 5},
+#   "nodes": {"total": 5, "healthy": 4, "draining": 1},
+#   "matches": {"total": 50, "running": 45, "pending": 5},
+#   "capacity": {"total": 50, "used": 23, "available": 27, "saturationPercent": 46.0},
+#   "autoscaler": {"enabled": true, "recommendation": "NONE"}
+# }
 ```

@@ -155,16 +155,24 @@ const mockResources = [
 const mockSnapshot = {
   matchId: 1,
   tick: 50,
-  data: {
-    EntityModule: {
-      ENTITY_ID: [1, 2, 3],
-      OWNER: [1, 1, 2],
+  modules: [
+    {
+      name: "EntityModule",
+      version: "1.0",
+      components: [
+        { name: "ENTITY_ID", values: [1, 2, 3] },
+        { name: "OWNER", values: [1, 1, 2] },
+      ],
     },
-    RigidBodyModule: {
-      POSITION_X: [100, 200, 300],
-      POSITION_Y: [50, 60, 70],
+    {
+      name: "RigidBodyModule",
+      version: "1.0",
+      components: [
+        { name: "POSITION_X", values: [100, 200, 300] },
+        { name: "POSITION_Y", values: [50, 60, 70] },
+      ],
     },
-  },
+  ],
 };
 
 export const handlers = [

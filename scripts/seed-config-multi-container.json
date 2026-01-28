@@ -1,0 +1,50 @@
+{
+  "containers": 3,
+  "container": {
+    "name": "multi-container-test"
+  },
+  "match": {
+    "modules": ["EntityModule", "RigidBodyModule", "GridMapModule"]
+  },
+  "player": {
+    "name": "MultiPlayer"
+  },
+  "entities": [
+    {
+      "count": 50,
+      "entityType": 100,
+      "position": {
+        "x": { "random": true, "min": 0, "max": 1000 },
+        "y": { "random": true, "min": 0, "max": 1000 },
+        "z": 0
+      },
+      "rigidBody": {
+        "velocity": {
+          "x": { "random": true, "min": -50, "max": 50 },
+          "y": { "random": true, "min": -50, "max": 50 },
+          "z": 0
+        },
+        "mass": 1.0,
+        "linearDrag": 0.1,
+        "angularDrag": 0.1,
+        "inertia": 1.0
+      }
+    },
+    {
+      "count": 10,
+      "entityType": 200,
+      "position": {
+        "x": { "start": 500, "increment": 0 },
+        "y": { "start": 500, "increment": 0 },
+        "z": 0
+      },
+      "rigidBody": {
+        "velocity": { "x": 0, "y": 0, "z": 0 },
+        "mass": 10.0,
+        "linearDrag": 0.01,
+        "angularDrag": 0.01,
+        "inertia": 5.0
+      }
+    }
+  ]
+}

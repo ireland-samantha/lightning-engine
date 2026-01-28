@@ -7,12 +7,14 @@ import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import { apiSlice } from "./api/apiSlice";
 import authReducer from "./slices/authSlice";
+import notificationReducer from "./slices/notificationSlice";
 import uiReducer from "./slices/uiSlice";
 
 const rootReducer = combineReducers({
   [apiSlice.reducerPath]: apiSlice.reducer,
   auth: authReducer,
   ui: uiReducer,
+  notifications: notificationReducer,
 });
 
 export function setupStore(preloadedState?: Partial<RootState>) {

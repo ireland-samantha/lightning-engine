@@ -1,0 +1,30 @@
+{
+  "containers": 1,
+  "container": {
+    "name": "seed-container"
+  },
+  "match": {
+    "modules": ["EntityModule", "RigidBodyModule", "GridMapModule"]
+  },
+  "player": {
+    "name": "SeedPlayer"
+  },
+  "entities": [
+    {
+      "count": 5,
+      "entityType": 100,
+      "position": {
+        "x": { "start": 100, "increment": 100 },
+        "y": { "start": 50, "increment": 50 },
+        "z": 0
+      },
+      "rigidBody": {
+        "velocity": { "x": 0, "y": 0, "z": 0 },
+        "mass": 1.0,
+        "linearDrag": 0.1,
+        "angularDrag": 0.1,
+        "inertia": 1.0
+      }
+    }
+  ]
+}

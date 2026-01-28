@@ -224,7 +224,7 @@ export const HistoryPanel: React.FC = () => {
                         >
                           <ListItemText
                             primary={`Tick ${snapshot.tick}`}
-                            secondary={`${Object.keys(snapshot.data).length} modules`}
+                            secondary={`${snapshot.modules.length} modules`}
                           />
                         </ListItemButton>
                       </ListItem>

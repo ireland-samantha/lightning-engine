@@ -11,6 +11,7 @@ export type PanelType =
   | "snapshot"
   | "history"
   | "logs"
+  | "metrics"
   | "matches"
   | "players"
   | "sessions"

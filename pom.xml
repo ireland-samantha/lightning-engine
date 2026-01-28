@@ -35,6 +35,8 @@
 <!--        <module>lightning-engine-extensions/games</module>-->
         <module>lightning-engine/api-acceptance-test</module>
         <module>lightning-engine/webservice/playwright-test</module>
+        <module>lightning-control-plane-core</module>
+        <module>lightning-control-plane</module>
 <!--        <module>game-renderer</module>-->
     </modules>
 

@@ -165,7 +165,13 @@ describe("ApiClient", () => {
       const mockSnapshot = {
         matchId: 1,
         tick: 42,
-        data: { EntityModule: { ENTITY_ID: [1, 2] } },
+        modules: [
+          {
+            name: "EntityModule",
+            version: "1.0",
+            components: [{ name: "ENTITY_ID", values: [1, 2] }],
+          },
+        ],
       };
 
       server.use(

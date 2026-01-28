@@ -41,7 +41,7 @@ who enjoy complexity, puzzles, and whacky ideas executed thoughtfully.
 - Multiple games running safely on the same server
 
 ### ECS (Entity Component System)
-- Array-based ECS storage with **O(1) component access** (because who needs simplicity when you could take your program down to the F1 track 🏎️)
+- Array-based ECS storage with **O(1) component access** (because lightning and all)
 - Float-based values for cache efficiency
 - Per-tick query caching
 - Match-scoped entity filtering

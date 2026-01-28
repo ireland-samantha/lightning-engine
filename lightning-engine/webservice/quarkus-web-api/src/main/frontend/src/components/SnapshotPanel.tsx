@@ -57,9 +57,8 @@ export const SnapshotPanel: React.FC<SnapshotPanelProps> = ({
   useEffect(() => {
     // Expand first module by default
     if (snapshot && expandedModules.size === 0) {
-      const modules = Object.keys(snapshot.data);
-      if (modules.length > 0) {
-        setExpandedModules(new Set([modules[0]]));
+      if (snapshot.modules.length > 0) {
+        setExpandedModules(new Set([snapshot.modules[0].name]));
       }
     }
   }, [snapshot]);
@@ -77,12 +76,10 @@ export const SnapshotPanel: React.FC<SnapshotPanelProps> = ({
   };
 
   const getEntityCount = (): number => {
-    if (!snapshot?.data) return 0;
-    const modules = Object.values(snapshot.data);
-    if (modules.length === 0) return 0;
-    const firstModule = modules[0];
-    const firstComponent = Object.values(firstModule)[0];
-    return Array.isArray(firstComponent) ? firstComponent.length : 0;
+    if (!snapshot?.modules || snapshot.modules.length === 0) return 0;
+    const firstModule = snapshot.modules[0];
+    if (firstModule.components.length === 0) return 0;
+    return firstModule.components[0].values.length;
   };
 
   return (
@@ -135,26 +132,32 @@ export const SnapshotPanel: React.FC<SnapshotPanelProps> = ({
                 variant="outlined"
               />
               <Chip
-                label={`${Object.keys(snapshot.data).length} Modules`}
+                label={`${snapshot.modules.length} Modules`}
                 variant="outlined"
               />
             </Box>
 
-            {Object.entries(snapshot.data).map(([moduleName, moduleData]) => (
+            {snapshot.modules.map((moduleData) => (
               <Accordion
-                key={moduleName}
-                expanded={expandedModules.has(moduleName)}
-                onChange={() => handleModuleToggle(moduleName)}
+                key={moduleData.name}
+                expanded={expandedModules.has(moduleData.name)}
+                onChange={() => handleModuleToggle(moduleData.name)}
                 sx={{ mb: 1 }}
               >
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Typography variant="subtitle1" fontWeight="medium">
-                    {moduleName}
+                    {moduleData.name}
                   </Typography>
                   <Chip
                     size="small"
-                    label={`${Object.keys(moduleData).length} components`}
-                    sx={{ ml: 2 }}
+                    label={`v${moduleData.version}`}
+                    sx={{ ml: 1 }}
+                    color="info"
+                  />
+                  <Chip
+                    size="small"
+                    label={`${moduleData.components.length} components`}
+                    sx={{ ml: 1 }}
                   />
                 </AccordionSummary>
                 <AccordionDetails>
@@ -168,40 +171,36 @@ export const SnapshotPanel: React.FC<SnapshotPanelProps> = ({
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {Object.entries(moduleData).map(
-                          ([componentName, values]) => (
-                            <TableRow key={componentName}>
-                              <TableCell component="th" scope="row">
-                                <Typography
-                                  variant="body2"
-                                  fontFamily="monospace"
-                                >
-                                  {componentName}
-                                </Typography>
-                              </TableCell>
-                              <TableCell align="right">
-                                {Array.isArray(values) ? values.length : 0}
-                              </TableCell>
-                              <TableCell>
-                                <Typography
-                                  variant="body2"
-                                  fontFamily="monospace"
-                                  sx={{
-                                    maxWidth: 200,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  {Array.isArray(values)
-                                    ? values.slice(0, 3).join(", ") +
-                                      (values.length > 3 ? "..." : "")
-                                    : String(values)}
-                                </Typography>
-                              </TableCell>
-                            </TableRow>
-                          ),
-                        )}
+                        {moduleData.components.map((component) => (
+                          <TableRow key={component.name}>
+                            <TableCell component="th" scope="row">
+                              <Typography
+                                variant="body2"
+                                fontFamily="monospace"
+                              >
+                                {component.name}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right">
+                              {component.values.length}
+                            </TableCell>
+                            <TableCell>
+                              <Typography
+                                variant="body2"
+                                fontFamily="monospace"
+                                sx={{
+                                  maxWidth: 200,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {component.values.slice(0, 3).join(", ") +
+                                  (component.values.length > 3 ? "..." : "")}
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        ))}
                       </TableBody>
                     </Table>
                   </TableContainer>

@@ -2,75 +2,631 @@ openapi: 3.0.3
 info:
   title: Lightning Engine API
   description: |
-    REST API for the Lightning Engine ECS game server.
+    REST API for the Lightning Engine ECS game server and Control Plane.
 
     ## Overview
 
-    The engine uses a tick-based simulation model:
-    1. **Commands** are queued via POST requests or WebSocket
+    Lightning Engine is a multi-match game server framework with:
+    - **Execution Containers**: Isolated runtime environments with independent game loops
+    - **ECS Architecture**: Entity-Component-System with columnar storage
+    - **Hot-reloadable Modules**: Runtime game logic updates
+    - **WebSocket Streaming**: Real-time snapshot delivery
+
+    ## Simulation Model
+
+    1. **Commands** are queued via REST or WebSocket
     2. **Tick** advances process commands and run all module systems
-    3. **Snapshots** return the current ECS state
+    3. **Snapshots** return the current ECS state (full or delta-compressed)
 
     ## WebSocket Endpoints
 
     ### Snapshot Streaming
-    Connect via WebSocket at `ws://localhost:8080/ws/containers/{containerId}/snapshots/{matchId}` for real-time updates.
+    - Full: `ws://host/ws/containers/{containerId}/snapshots/{matchId}`
+    - Delta: `ws://host/ws/containers/{containerId}/snapshots/delta/{matchId}`
 
-    ### Command WebSocket (Recommended for high-performance)
-    Connect via WebSocket at `ws://localhost:8080/containers/{containerId}/commands?token=xxx` to submit commands using Protocol Buffers.
-
-    **Authentication:** JWT token passed as query parameter (must have `admin` or `command_manager` role).
-
-    **Protocol:** Binary Protocol Buffer messages (`CommandRequest`/`CommandResponse`).
+    ### Command WebSocket (High-Performance)
+    - Endpoint: `ws://host/containers/{containerId}/commands?token=xxx`
+    - Protocol: Binary Protocol Buffer messages
+    - Auth: JWT token as query parameter (requires `admin` or `command_manager` role)
 
     See `api-proto/src/main/proto/command.proto` for message definitions.
 
-  version: 1.0.0
+  version: 2.0.0
   license:
     name: MIT
 
 servers:
   - url: http://localhost:8080
-    description: Local development server
+    description: Lightning Engine (local development)
+  - url: http://localhost:8081
+    description: Control Plane (local development)
 
 tags:
+  # Lightning Engine Tags
+  - name: Authentication
+    description: JWT authentication and token management
+  - name: Users
+    description: User management (admin only)
+  - name: Roles
+    description: Role management and RBAC
+  - name: Health
+    description: Health check endpoints
+  - name: Containers
+    description: Execution container lifecycle management
+  - name: Container Matches
+    description: Match management within containers
+  - name: Container Commands
+    description: Command queueing and execution
+  - name: Container Modules
+    description: Module management per container
+  - name: Container Sessions
+    description: Player session management
+  - name: Container Players
+    description: Player lifecycle management
+  - name: Container Snapshots
+    description: ECS state queries and history
+  - name: Container History
+    description: MongoDB-persisted snapshot history
+  - name: Container Restore
+    description: Match state restoration
+  - name: Container Metrics
+    description: Performance metrics and monitoring
+  - name: Container Resources
+    description: Asset and resource management
+  - name: Container AI
+    description: AI backend management per container
   - name: Simulation
     description: Tick control and playback
-  - name: Commands
-    description: Queue commands for execution
-  - name: WebSocket
-    description: |
-      WebSocket endpoints for real-time communication.
-
-      **Command WebSocket:** `ws://host/containers/{id}/commands?token=xxx`
-      - Authentication via JWT query parameter
-      - Binary Protocol Buffer messages
-      - Requires `admin` or `command_manager` role
-
-      **Snapshot WebSocket:** `ws://host/ws/containers/{id}/snapshots/{matchId}`
-      - JSON snapshot streaming
-      - No authentication required
-  - name: Matches
-    description: Game instance management
-  - name: Snapshots
-    description: ECS state queries
   - name: Modules
-    description: Hot-reloadable game logic
-  - name: Resources
-    description: Texture and asset management
-  - name: GUI
-    description: Debug GUI client download
+    description: Global module management
+  - name: AI
+    description: Global AI backend management
+  - name: Node
+    description: Node metrics and registration status
+  # Control Plane Tags
+  - name: Control Plane - Nodes
+    description: Node registration and health management
+  - name: Control Plane - Cluster
+    description: Cluster status and node overview
+  - name: Control Plane - Matches
+    description: Match routing and management across cluster
+  - name: Control Plane - Modules
+    description: Module registry and distribution
+  - name: Control Plane - Autoscaler
+    description: Autoscaling recommendations and status
+  - name: Control Plane - Dashboard
+    description: Dashboard overview and monitoring
+
+security:
+  - bearerAuth: []
 
 paths:
-  # Simulation endpoints
-  /api/simulation/tick:
+  # ==================== HEALTH ====================
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  # ==================== AUTHENTICATION ====================
+  /api/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login and get JWT token
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid credentials
+
+  /api/auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh JWT token
+      operationId: refreshToken
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid or expired token
+
+  /api/auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current user info
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          description: User not found
+
+  # ==================== USER MANAGEMENT ====================
+  /api/auth/users:
+    get:
+      tags: [Users]
+      summary: List all users
+      operationId: listUsers
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserResponse'
+    post:
+      tags: [Users]
+      summary: Create user
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+  /api/auth/users/{userId}:
+    get:
+      tags: [Users]
+      summary: Get user by ID
+      operationId: getUserById
+      parameters:
+        - $ref: '#/components/parameters/userId'
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          description: User not found
+    delete:
+      tags: [Users]
+      summary: Delete user
+      operationId: deleteUser
+      parameters:
+        - $ref: '#/components/parameters/userId'
+      responses:
+        '204':
+          description: User deleted
+        '404':
+          description: User not found
+
+  /api/auth/users/username/{username}:
+    get:
+      tags: [Users]
+      summary: Get user by username
+      operationId: getUserByUsername
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          description: User not found
+
+  /api/auth/users/{userId}/password:
+    put:
+      tags: [Users]
+      summary: Update user password
+      operationId: updateUserPassword
+      parameters:
+        - $ref: '#/components/parameters/userId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+  /api/auth/users/{userId}/roles:
+    put:
+      tags: [Users]
+      summary: Update user roles
+      operationId: updateUserRoles
+      parameters:
+        - $ref: '#/components/parameters/userId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+      responses:
+        '200':
+          description: Roles updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+  /api/auth/users/{userId}/roles/{roleName}:
+    post:
+      tags: [Users]
+      summary: Add role to user
+      operationId: addUserRole
+      parameters:
+        - $ref: '#/components/parameters/userId'
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Role added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+    delete:
+      tags: [Users]
+      summary: Remove role from user
+      operationId: removeUserRole
+      parameters:
+        - $ref: '#/components/parameters/userId'
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Role removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+  /api/auth/users/{userId}/enabled:
+    put:
+      tags: [Users]
+      summary: Enable or disable user
+      operationId: setUserEnabled
+      parameters:
+        - $ref: '#/components/parameters/userId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: boolean
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+  # ==================== ROLE MANAGEMENT ====================
+  /api/auth/roles:
+    get:
+      tags: [Roles]
+      summary: List all roles
+      operationId: listRoles
+      responses:
+        '200':
+          description: List of roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+    post:
+      tags: [Roles]
+      summary: Create role
+      operationId: createRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleRequest'
+      responses:
+        '201':
+          description: Role created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+
+  /api/auth/roles/{roleId}:
+    get:
+      tags: [Roles]
+      summary: Get role by ID
+      operationId: getRoleById
+      parameters:
+        - $ref: '#/components/parameters/roleId'
+      responses:
+        '200':
+          description: Role details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '404':
+          description: Role not found
+    delete:
+      tags: [Roles]
+      summary: Delete role
+      operationId: deleteRole
+      parameters:
+        - $ref: '#/components/parameters/roleId'
+      responses:
+        '204':
+          description: Role deleted
+        '404':
+          description: Role not found
+
+  /api/auth/roles/name/{roleName}:
+    get:
+      tags: [Roles]
+      summary: Get role by name
+      operationId: getRoleByName
+      parameters:
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Role details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '404':
+          description: Role not found
+
+  /api/auth/roles/{roleId}/description:
+    put:
+      tags: [Roles]
+      summary: Update role description
+      operationId: updateRoleDescription
+      parameters:
+        - $ref: '#/components/parameters/roleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: Description updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+
+  /api/auth/roles/{roleId}/includes:
+    put:
+      tags: [Roles]
+      summary: Update included roles (role hierarchy)
+      operationId: updateRoleIncludes
+      parameters:
+        - $ref: '#/components/parameters/roleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+      responses:
+        '200':
+          description: Included roles updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+
+  # ==================== CONTAINERS ====================
+  /api/containers:
+    get:
+      tags: [Containers]
+      summary: List all containers
+      operationId: listContainers
+      responses:
+        '200':
+          description: List of containers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContainerResponse'
+    post:
+      tags: [Containers]
+      summary: Create container
+      operationId: createContainer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContainerRequest'
+      responses:
+        '201':
+          description: Container created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerResponse'
+
+  /api/containers/{containerId}:
+    get:
+      tags: [Containers]
+      summary: Get container by ID
+      operationId: getContainerById
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: Container details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerResponse'
+        '404':
+          description: Container not found
+    delete:
+      tags: [Containers]
+      summary: Delete container
+      operationId: deleteContainer
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '204':
+          description: Container deleted
+        '404':
+          description: Container not found
+
+  /api/containers/{containerId}/start:
+    post:
+      tags: [Containers]
+      summary: Start container
+      operationId: startContainer
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: Container started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerResponse'
+
+  /api/containers/{containerId}/stop:
+    post:
+      tags: [Containers]
+      summary: Stop container
+      operationId: stopContainer
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: Container stopped
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerResponse'
+
+  /api/containers/{containerId}/pause:
+    post:
+      tags: [Containers]
+      summary: Pause container
+      operationId: pauseContainer
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: Container paused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerResponse'
+
+  /api/containers/{containerId}/resume:
+    post:
+      tags: [Containers]
+      summary: Resume container
+      operationId: resumeContainer
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: Container resumed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerResponse'
+
+  /api/containers/{containerId}/stats:
+    get:
+      tags: [Containers]
+      summary: Get container statistics
+      operationId: getContainerStats
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: Container statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerStatsResponse'
+
+  # ==================== SIMULATION CONTROL ====================
+  /api/containers/{containerId}/tick:
     get:
       tags: [Simulation]
       summary: Get current tick
       operationId: getCurrentTick
+      parameters:
+        - $ref: '#/components/parameters/containerId'
       responses:
         '200':
-          description: Current simulation tick
+          description: Current tick
           content:
             application/json:
               schema:
@@ -78,122 +634,80 @@ paths:
     post:
       tags: [Simulation]
       summary: Advance one tick
-      description: Processes all queued commands, runs all module systems, increments tick counter
       operationId: advanceTick
+      parameters:
+        - $ref: '#/components/parameters/containerId'
       responses:
         '200':
-          description: New tick number after advancement
+          description: Tick advanced
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TickResponse'
 
-  /api/simulation/play:
+  /api/containers/{containerId}/play:
     post:
       tags: [Simulation]
       summary: Start auto-advance
-      description: Begins continuous tick advancement at specified interval
       operationId: startPlay
       parameters:
+        - $ref: '#/components/parameters/containerId'
         - name: intervalMs
           in: query
-          description: Milliseconds between ticks (default 10ms = 100 FPS)
+          description: Milliseconds between ticks (default 16ms = ~60 FPS)
           schema:
             type: integer
-            default: 10
+            default: 16
             minimum: 1
       responses:
         '200':
-          description: Playback started
+          description: Auto-advance started
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlayStatusResponse'
+                $ref: '#/components/schemas/ContainerResponse'
 
-  /api/simulation/stop:
+  /api/containers/{containerId}/stop-auto:
     post:
       tags: [Simulation]
       summary: Stop auto-advance
-      operationId: stopPlay
+      operationId: stopAutoAdvance
+      parameters:
+        - $ref: '#/components/parameters/containerId'
       responses:
         '200':
-          description: Playback stopped
+          description: Auto-advance stopped
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlayStatusResponse'
+                $ref: '#/components/schemas/ContainerResponse'
 
-  /api/simulation/status:
+  /api/containers/{containerId}/status:
     get:
       tags: [Simulation]
       summary: Get playback status
       operationId: getPlayStatus
+      parameters:
+        - $ref: '#/components/parameters/containerId'
       responses:
         '200':
-          description: Current playback state
+          description: Playback status
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PlayStatusResponse'
 
-  # Command endpoints
-  /api/commands:
+  # ==================== CONTAINER MATCHES ====================
+  /api/containers/{containerId}/matches:
     get:
-      tags: [Commands]
-      summary: List available commands
-      description: Returns all registered commands with their parameter schemas
-      operationId: listCommands
+      tags: [Container Matches]
+      summary: List matches in container
+      operationId: listContainerMatches
+      parameters:
+        - $ref: '#/components/parameters/containerId'
       responses:
         '200':
-          description: List of command signatures
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: string
-                example:
-                  - "spawn(long matchId, long entityType, long playerId)"
-                  - "damage(long entityId, float amount)"
-                  - "CheckersMove(long matchId, int fromRow, int fromCol, int toRow, int toCol)"
-    post:
-      tags: [Commands]
-      summary: Queue a command
-      description: |
-        Commands are queued and executed on the next tick advance.
-        The command name must match a registered command from a loaded module.
-      operationId: enqueueCommand
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CommandRequest'
-            example:
-              commandName: spawn
-              payload:
-                matchId: 1
-                entityType: 1
-                playerId: 1
-      responses:
-        '202':
-          description: Command accepted and queued
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CommandResponse'
-        '404':
-          description: Referenced entity not found
-
-  # Match endpoints
-  /api/matches:
-    get:
-      tags: [Matches]
-      summary: List all matches
-      operationId: listMatches
-      responses:
-        '200':
-          description: All active matches
+          description: List of matches
           content:
             application/json:
               schema:
@@ -201,21 +715,17 @@ paths:
                 items:
                   $ref: '#/components/schemas/MatchResponse'
     post:
-      tags: [Matches]
-      summary: Create a match
-      description: Creates a new game instance with specified modules enabled
-      operationId: createMatch
+      tags: [Container Matches]
+      summary: Create match in container
+      operationId: createContainerMatch
+      parameters:
+        - $ref: '#/components/parameters/containerId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/MatchRequest'
-            example:
-              id: 0
-              enabledModuleNames:
-                - SpawnModule
-                - MoveModule
       responses:
         '201':
           description: Match created
@@ -224,12 +734,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/MatchResponse'
 
-  /api/matches/{matchId}:
+  /api/containers/{containerId}/matches/{matchId}:
     get:
-      tags: [Matches]
+      tags: [Container Matches]
       summary: Get match by ID
-      operationId: getMatch
+      operationId: getContainerMatch
       parameters:
+        - $ref: '#/components/parameters/containerId'
         - $ref: '#/components/parameters/matchId'
       responses:
         '200':
@@ -241,11 +752,11 @@ paths:
         '404':
           description: Match not found
     delete:
-      tags: [Matches]
-      summary: Delete a match
-      description: Deletes match and all associated entities
-      operationId: deleteMatch
+      tags: [Container Matches]
+      summary: Delete match
+      operationId: deleteContainerMatch
       parameters:
+        - $ref: '#/components/parameters/containerId'
         - $ref: '#/components/parameters/matchId'
       responses:
         '204':
@@ -253,31 +764,91 @@ paths:
         '404':
           description: Match not found
 
-  # Snapshot endpoints
-  /api/snapshots:
+  # ==================== CONTAINER COMMANDS ====================
+  /api/containers/{containerId}/commands:
     get:
-      tags: [Snapshots]
-      summary: Get all snapshots
-      description: Returns ECS state for all matches
-      operationId: getAllSnapshots
+      tags: [Container Commands]
+      summary: List available commands
+      operationId: listContainerCommands
+      parameters:
+        - $ref: '#/components/parameters/containerId'
       responses:
         '200':
-          description: Snapshots for all matches
+          description: Available commands
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/SnapshotResponse'
+                  $ref: '#/components/schemas/CommandDefinition'
+    post:
+      tags: [Container Commands]
+      summary: Queue command for execution
+      operationId: queueCommand
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommandRequest'
+      responses:
+        '202':
+          description: Command accepted and queued
 
-  /api/snapshots/match/{matchId}:
+  # ==================== CONTAINER MODULES ====================
+  /api/containers/{containerId}/modules:
     get:
-      tags: [Snapshots]
-      summary: Get snapshot for match
-      description: Returns current ECS state filtered to a specific match
+      tags: [Container Modules]
+      summary: List loaded modules
+      operationId: listContainerModules
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: Loaded module names
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /api/containers/{containerId}/modules/reload:
+    post:
+      tags: [Container Modules]
+      summary: Reload modules
+      operationId: reloadContainerModules
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: Modules reloaded
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '500':
+          description: Reload failed
+
+  # ==================== CONTAINER SNAPSHOTS ====================
+  /api/containers/{containerId}/matches/{matchId}/snapshot:
+    get:
+      tags: [Container Snapshots]
+      summary: Get match snapshot
       operationId: getMatchSnapshot
       parameters:
+        - $ref: '#/components/parameters/containerId'
         - $ref: '#/components/parameters/matchId'
+        - name: playerId
+          in: query
+          description: Filter snapshot by player visibility
+          schema:
+            type: integer
+            format: int64
       responses:
         '200':
           description: Match snapshot
@@ -285,29 +856,709 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SnapshotResponse'
-              example:
-                matchId: 1
-                tick: 42
-                data:
-                  MoveModule:
-                    POSITION_X: [100.0, 200.0, 150.0]
-                    POSITION_Y: [50.0, 75.0, 100.0]
-                    VELOCITY_X: [1.0, -1.0, 0.0]
-                  SpawnModule:
-                    ENTITY_TYPE: [1.0, 2.0, 1.0]
-                    OWNER_ID: [1.0, 1.0, 2.0]
-        '404':
-          description: Match not found
 
-  # Module endpoints
+  /api/containers/{containerId}/matches/{matchId}/snapshots/delta:
+    get:
+      tags: [Container Snapshots]
+      summary: Get delta snapshot
+      operationId: getDeltaSnapshot
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+        - name: fromTick
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: toTick
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Delta snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeltaSnapshotResponse'
+
+  /api/containers/{containerId}/matches/{matchId}/snapshots/record:
+    post:
+      tags: [Container Snapshots]
+      summary: Record snapshot to history
+      operationId: recordSnapshot
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+      responses:
+        '200':
+          description: Snapshot recorded
+
+  /api/containers/{containerId}/matches/{matchId}/snapshots/history-info:
+    get:
+      tags: [Container Snapshots]
+      summary: Get snapshot history info
+      operationId: getSnapshotHistoryInfo
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+      responses:
+        '200':
+          description: History info
+
+  /api/containers/{containerId}/matches/{matchId}/snapshots/history:
+    delete:
+      tags: [Container Snapshots]
+      summary: Clear snapshot history
+      operationId: clearSnapshotHistory
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+      responses:
+        '200':
+          description: History cleared
+
+  # ==================== CONTAINER HISTORY ====================
+  /api/containers/{containerId}/history:
+    get:
+      tags: [Container History]
+      summary: Get container history summary
+      operationId: getContainerHistory
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: Container history summary
+
+  /api/containers/{containerId}/matches/{matchId}/history:
+    get:
+      tags: [Container History]
+      summary: Get match history summary
+      operationId: getMatchHistory
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+      responses:
+        '200':
+          description: Match history summary
+    delete:
+      tags: [Container History]
+      summary: Delete all match history
+      operationId: deleteMatchHistory
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+      responses:
+        '200':
+          description: History deleted
+
+  /api/containers/{containerId}/matches/{matchId}/history/snapshots:
+    get:
+      tags: [Container History]
+      summary: Get snapshots in tick range
+      operationId: getHistorySnapshots
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+        - name: fromTick
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: toTick
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+      responses:
+        '200':
+          description: Snapshots in range
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SnapshotResponse'
+
+  /api/containers/{containerId}/matches/{matchId}/history/snapshots/latest:
+    get:
+      tags: [Container History]
+      summary: Get latest snapshots
+      operationId: getLatestSnapshots
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 100
+      responses:
+        '200':
+          description: Latest snapshots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SnapshotResponse'
+
+  /api/containers/{containerId}/matches/{matchId}/history/snapshots/{tick}:
+    get:
+      tags: [Container History]
+      summary: Get snapshot at specific tick
+      operationId: getSnapshotAtTick
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+        - name: tick
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Snapshot at tick
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotResponse'
+        '404':
+          description: Snapshot not found
+
+  /api/containers/{containerId}/matches/{matchId}/history/older-than/{tick}:
+    delete:
+      tags: [Container History]
+      summary: Delete snapshots older than tick
+      operationId: deleteOldSnapshots
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+        - name: tick
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Old snapshots deleted
+
+  # ==================== CONTAINER RESTORE ====================
+  /api/containers/{containerId}/matches/{matchId}/restore:
+    post:
+      tags: [Container Restore]
+      summary: Restore match from snapshot
+      operationId: restoreMatch
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+        - name: tick
+          in: query
+          description: Tick to restore to (-1 for latest)
+          schema:
+            type: integer
+            format: int64
+            default: -1
+      responses:
+        '200':
+          description: Match restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestoreResult'
+
+  /api/containers/{containerId}/matches/{matchId}/restore/available:
+    get:
+      tags: [Container Restore]
+      summary: Check if restore is available
+      operationId: checkRestoreAvailable
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+      responses:
+        '200':
+          description: Restore availability
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  matchId:
+                    type: integer
+                    format: int64
+                  canRestore:
+                    type: boolean
+                  reason:
+                    type: string
+
+  /api/containers/{containerId}/restore/all:
+    post:
+      tags: [Container Restore]
+      summary: Restore all matches in container
+      operationId: restoreAllMatches
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: All matches restored
+
+  /api/containers/{containerId}/restore/config:
+    get:
+      tags: [Container Restore]
+      summary: Get restore configuration
+      operationId: getRestoreConfig
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: Restore configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  persistenceEnabled:
+                    type: boolean
+                  restoreEnabled:
+                    type: boolean
+                  autoRestoreOnStartup:
+                    type: boolean
+
+  # ==================== CONTAINER SESSIONS ====================
+  /api/containers/{containerId}/sessions:
+    get:
+      tags: [Container Sessions]
+      summary: List all sessions in container
+      operationId: listContainerSessions
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: All sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SessionResponse'
+
+  /api/containers/{containerId}/matches/{matchId}/sessions:
+    get:
+      tags: [Container Sessions]
+      summary: List sessions for match
+      operationId: listMatchSessions
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+      responses:
+        '200':
+          description: Match sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SessionResponse'
+    post:
+      tags: [Container Sessions]
+      summary: Connect player to session
+      operationId: connectSession
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionConnectRequest'
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+
+  /api/containers/{containerId}/matches/{matchId}/sessions/active:
+    get:
+      tags: [Container Sessions]
+      summary: List active sessions for match
+      operationId: listActiveMatchSessions
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+      responses:
+        '200':
+          description: Active sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SessionResponse'
+
+  /api/containers/{containerId}/matches/{matchId}/sessions/{playerId}:
+    get:
+      tags: [Container Sessions]
+      summary: Get player session
+      operationId: getPlayerSession
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+        - $ref: '#/components/parameters/playerId'
+      responses:
+        '200':
+          description: Session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '404':
+          description: Session not found
+
+  /api/containers/{containerId}/matches/{matchId}/sessions/{playerId}/reconnect:
+    post:
+      tags: [Container Sessions]
+      summary: Reconnect player session
+      operationId: reconnectSession
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+        - $ref: '#/components/parameters/playerId'
+      responses:
+        '200':
+          description: Session reconnected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+
+  /api/containers/{containerId}/matches/{matchId}/sessions/{playerId}/disconnect:
+    post:
+      tags: [Container Sessions]
+      summary: Disconnect player session
+      operationId: disconnectSession
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+        - $ref: '#/components/parameters/playerId'
+      responses:
+        '204':
+          description: Session disconnected
+
+  /api/containers/{containerId}/matches/{matchId}/sessions/{playerId}/abandon:
+    post:
+      tags: [Container Sessions]
+      summary: Abandon player session
+      operationId: abandonSession
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+        - $ref: '#/components/parameters/playerId'
+      responses:
+        '204':
+          description: Session abandoned
+
+  /api/containers/{containerId}/matches/{matchId}/sessions/{playerId}/can-reconnect:
+    get:
+      tags: [Container Sessions]
+      summary: Check if player can reconnect
+      operationId: canReconnect
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+        - $ref: '#/components/parameters/playerId'
+      responses:
+        '200':
+          description: Reconnect capability
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  canReconnect:
+                    type: boolean
+
+  # ==================== CONTAINER PLAYERS ====================
+  /api/containers/{containerId}/players:
+    get:
+      tags: [Container Players]
+      summary: List all players in container
+      operationId: listContainerPlayers
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: All players
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlayerResponse'
+    post:
+      tags: [Container Players]
+      summary: Create player
+      operationId: createPlayer
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayerRequest'
+      responses:
+        '201':
+          description: Player created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerResponse'
+
+  /api/containers/{containerId}/players/{playerId}:
+    get:
+      tags: [Container Players]
+      summary: Get player by ID
+      operationId: getPlayer
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/playerId'
+      responses:
+        '200':
+          description: Player details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerResponse'
+        '404':
+          description: Player not found
+    delete:
+      tags: [Container Players]
+      summary: Delete player
+      operationId: deletePlayer
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/playerId'
+      responses:
+        '204':
+          description: Player deleted
+        '404':
+          description: Player not found
+
+  /api/containers/{containerId}/matches/{matchId}/players:
+    get:
+      tags: [Container Players]
+      summary: List players in match
+      operationId: listMatchPlayers
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+      responses:
+        '200':
+          description: Match players
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SessionResponse'
+    post:
+      tags: [Container Players]
+      summary: Join player to match
+      operationId: joinPlayerToMatch
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinMatchRequest'
+      responses:
+        '201':
+          description: Player joined match
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinMatchResponse'
+
+  /api/containers/{containerId}/matches/{matchId}/players/{playerId}:
+    get:
+      tags: [Container Players]
+      summary: Get player in match
+      operationId: getMatchPlayer
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+        - $ref: '#/components/parameters/playerId'
+      responses:
+        '200':
+          description: Player session in match
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '404':
+          description: Player not in match
+    delete:
+      tags: [Container Players]
+      summary: Remove player from match
+      operationId: removePlayerFromMatch
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/matchId'
+        - $ref: '#/components/parameters/playerId'
+      responses:
+        '204':
+          description: Player removed from match
+        '404':
+          description: Player not in match
+
+  # ==================== CONTAINER METRICS ====================
+  /api/containers/{containerId}/metrics:
+    get:
+      tags: [Container Metrics]
+      summary: Get container metrics
+      operationId: getContainerMetrics
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: Container metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+
+  /api/containers/{containerId}/metrics/reset:
+    post:
+      tags: [Container Metrics]
+      summary: Reset metrics
+      operationId: resetContainerMetrics
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: Metrics reset
+
+  # ==================== CONTAINER RESOURCES ====================
+  /api/containers/{containerId}/resources:
+    get:
+      tags: [Container Resources]
+      summary: List resources in container
+      operationId: listContainerResources
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: List of resources
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResourceResponse'
+    post:
+      tags: [Container Resources]
+      summary: Upload resource to container
+      operationId: uploadContainerResource
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                resourceName:
+                  type: string
+                resourceType:
+                  type: string
+              required:
+                - file
+      responses:
+        '201':
+          description: Resource uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceResponse'
+
+  /api/containers/{containerId}/resources/{resourceId}:
+    get:
+      tags: [Container Resources]
+      summary: Get resource metadata
+      operationId: getContainerResource
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/resourceId'
+      responses:
+        '200':
+          description: Resource metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceResponse'
+        '404':
+          description: Resource not found
+    delete:
+      tags: [Container Resources]
+      summary: Delete resource
+      operationId: deleteContainerResource
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+        - $ref: '#/components/parameters/resourceId'
+      responses:
+        '204':
+          description: Resource deleted
+        '404':
+          description: Resource not found
+
+  # ==================== CONTAINER AI ====================
+  /api/containers/{containerId}/ai:
+    get:
+      tags: [Container AI]
+      summary: List available AI backends
+      operationId: listContainerAI
+      parameters:
+        - $ref: '#/components/parameters/containerId'
+      responses:
+        '200':
+          description: AI backend names
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  # ==================== GLOBAL MODULES ====================
   /api/modules:
     get:
       tags: [Modules]
-      summary: List installed modules
+      summary: List all installed modules
       operationId: listModules
       responses:
         '200':
-          description: All available modules
+          description: All modules
           content:
             application/json:
               schema:
@@ -355,7 +1606,6 @@ paths:
     post:
       tags: [Modules]
       summary: Upload module JAR
-      description: Upload a JAR file containing ModuleFactory implementations
       operationId: uploadModule
       requestBody:
         required: true
@@ -367,12 +1617,11 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: JAR file to upload
               required:
                 - file
       responses:
         '201':
-          description: Module uploaded and installed
+          description: Module uploaded
           content:
             application/json:
               schema:
@@ -386,7 +1635,6 @@ paths:
     post:
       tags: [Modules]
       summary: Reload all modules
-      description: Resets and reloads all modules from disk
       operationId: reloadModules
       responses:
         '200':
@@ -397,27 +1645,66 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ModuleResponse'
+        '500':
+          description: Reload failed
 
-  # Resource endpoints
-  /api/resources:
+  # ==================== GLOBAL AI ====================
+  /api/ai:
     get:
-      tags: [Resources]
-      summary: List all resources
-      operationId: listResources
+      tags: [AI]
+      summary: List all AI backends
+      operationId: listAI
       responses:
         '200':
-          description: All uploaded resources
+          description: All AI backends
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ResourceResponse'
+                  $ref: '#/components/schemas/AIResponse'
+
+  /api/ai/{aiName}:
+    get:
+      tags: [AI]
+      summary: Get AI backend details
+      operationId: getAI
+      parameters:
+        - name: aiName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: AI details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIResponse'
+        '404':
+          description: AI not found
+    delete:
+      tags: [AI]
+      summary: Uninstall AI backend
+      operationId: uninstallAI
+      parameters:
+        - name: aiName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: AI uninstalled
+        '404':
+          description: AI not found
+
+  /api/ai/upload:
     post:
-      tags: [Resources]
-      summary: Upload resource
-      description: Upload a texture or other binary resource
-      operationId: uploadResource
+      tags: [AI]
+      summary: Upload AI JAR
+      operationId: uploadAI
       requestBody:
         required: true
         content:
@@ -428,153 +1715,638 @@ paths:
                 file:
                   type: string
                   format: binary
-                resourceName:
-                  type: string
-                  description: Optional name (defaults to filename)
-                resourceType:
-                  type: string
-                  enum: [TEXTURE]
-                  default: TEXTURE
               required:
                 - file
       responses:
         '201':
-          description: Resource uploaded
+          description: AI uploaded
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ResourceResponse'
+                type: array
+                items:
+                  $ref: '#/components/schemas/AIResponse'
+        '400':
+          description: Invalid file (must be .jar)
 
-  /api/resources/{resourceId}:
-    get:
-      tags: [Resources]
-      summary: Get resource metadata
-      operationId: getResource
-      parameters:
-        - $ref: '#/components/parameters/resourceId'
+  /api/ai/reload:
+    post:
+      tags: [AI]
+      summary: Reload all AI backends
+      operationId: reloadAI
       responses:
         '200':
-          description: Resource metadata
+          description: AI reloaded
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ResourceResponse'
-        '404':
-          description: Resource not found
-    delete:
-      tags: [Resources]
-      summary: Delete resource
-      operationId: deleteResource
+                type: array
+                items:
+                  $ref: '#/components/schemas/AIResponse'
+        '500':
+          description: Reload failed
+
+  # ==================== NODE METRICS ====================
+  /api/node/metrics:
+    get:
+      tags: [Node]
+      summary: Get node metrics
+      operationId: getNodeMetrics
+      responses:
+        '200':
+          description: Node metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeMetricsDto'
+
+  /api/node/status:
+    get:
+      tags: [Node]
+      summary: Get node registration status
+      operationId: getNodeStatus
+      responses:
+        '200':
+          description: Node status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeStatusResponse'
+
+  # ==================== CONTROL PLANE: NODE MANAGEMENT ====================
+  /api/nodes/register:
+    post:
+      tags: [Control Plane - Nodes]
+      summary: Register a node
+      operationId: registerNode
       parameters:
-        - $ref: '#/components/parameters/resourceId'
+        - $ref: '#/components/parameters/controlPlaneToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeRegistrationRequest'
+      responses:
+        '201':
+          description: Node registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CPNodeResponse'
+        '401':
+          description: Authentication failed
+
+  /api/nodes/{nodeId}/heartbeat:
+    put:
+      tags: [Control Plane - Nodes]
+      summary: Send heartbeat
+      operationId: nodeHeartbeat
+      parameters:
+        - $ref: '#/components/parameters/controlPlaneToken'
+        - $ref: '#/components/parameters/nodeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeartbeatRequest'
+      responses:
+        '200':
+          description: Heartbeat processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CPNodeResponse'
+        '404':
+          description: Node not found
+
+  /api/nodes/{nodeId}/drain:
+    post:
+      tags: [Control Plane - Nodes]
+      summary: Mark node as draining
+      operationId: drainNode
+      parameters:
+        - $ref: '#/components/parameters/controlPlaneToken'
+        - $ref: '#/components/parameters/nodeId'
+      responses:
+        '200':
+          description: Node draining
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CPNodeResponse'
+        '404':
+          description: Node not found
+
+  /api/nodes/{nodeId}:
+    delete:
+      tags: [Control Plane - Nodes]
+      summary: Deregister node
+      operationId: deregisterNode
+      parameters:
+        - $ref: '#/components/parameters/controlPlaneToken'
+        - $ref: '#/components/parameters/nodeId'
       responses:
         '204':
-          description: Resource deleted
+          description: Node deregistered
         '404':
-          description: Resource not found
+          description: Node not found
 
-  /api/resources/{resourceId}/data:
+  # ==================== CONTROL PLANE: CLUSTER ====================
+  /api/cluster/nodes:
     get:
-      tags: [Resources]
-      summary: Download resource data
-      operationId: downloadResource
-      parameters:
-        - $ref: '#/components/parameters/resourceId'
+      tags: [Control Plane - Cluster]
+      summary: List all cluster nodes
+      operationId: listClusterNodes
       responses:
         '200':
-          description: Resource binary data
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
-        '404':
-          description: Resource not found
-
-  /api/resources/{resourceId}/stream:
-    get:
-      tags: [Resources]
-      summary: Stream resource data
-      description: Streams resource in chunks for large files
-      operationId: streamResource
-      parameters:
-        - $ref: '#/components/parameters/resourceId'
-      responses:
-        '200':
-          description: Streamed resource data
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
-        '404':
-          description: Resource not found
-
-  # GUI endpoints
-  /api/gui/info:
-    get:
-      tags: [GUI]
-      summary: Get GUI availability info
-      description: Returns information about the GUI client availability and download URL
-      operationId: getGuiInfo
-      responses:
-        '200':
-          description: GUI info
+          description: All nodes
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GuiInfoResponse'
+                type: array
+                items:
+                  $ref: '#/components/schemas/CPNodeResponse'
 
-  /api/gui/download:
+  /api/cluster/nodes/{nodeId}:
     get:
-      tags: [GUI]
-      summary: Download GUI client
-      description: |
-        Downloads the GUI client as a ZIP with auto-configuration.
-
-        The ZIP contains:
-        - `lightning-gui.jar` - The GUI application
-        - `server.properties` - Pre-configured with this server's URL
-        - `README.txt` - Usage instructions
-
-        Example usage:
-        ```bash
-        curl -O http://server:8080/api/gui/download
-        unzip lightning-gui.zip
-        java -XstartOnFirstThread -jar lightning-gui.jar  # macOS
-        java -jar lightning-gui.jar                        # Linux/Windows
-        ```
-      operationId: downloadGui
+      tags: [Control Plane - Cluster]
+      summary: Get node by ID
+      operationId: getClusterNode
+      parameters:
+        - $ref: '#/components/parameters/nodeId'
       responses:
         '200':
-          description: GUI ZIP file
+          description: Node details
           content:
-            application/zip:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CPNodeResponse'
+        '404':
+          description: Node not found
+
+  /api/cluster/status:
+    get:
+      tags: [Control Plane - Cluster]
+      summary: Get cluster status
+      operationId: getClusterStatus
+      responses:
+        '200':
+          description: Cluster status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterStatus'
+
+  # ==================== CONTROL PLANE: MATCHES ====================
+  /api/matches/create:
+    post:
+      tags: [Control Plane - Matches]
+      summary: Create match on best node
+      operationId: createClusterMatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CPCreateMatchRequest'
+      responses:
+        '201':
+          description: Match created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CPMatchResponse'
+        '503':
+          description: No available nodes
+
+  /api/matches:
+    get:
+      tags: [Control Plane - Matches]
+      summary: List all matches
+      operationId: listClusterMatches
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, RUNNING, FINISHED]
+      responses:
+        '200':
+          description: All matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CPMatchResponse'
+
+  /api/matches/{matchId}:
+    get:
+      tags: [Control Plane - Matches]
+      summary: Get match by ID
+      operationId: getClusterMatch
+      parameters:
+        - name: matchId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Match details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CPMatchResponse'
+        '404':
+          description: Match not found
+    delete:
+      tags: [Control Plane - Matches]
+      summary: Delete match
+      operationId: deleteClusterMatch
+      parameters:
+        - name: matchId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Match deleted
+        '404':
+          description: Match not found
+
+  /api/matches/{matchId}/finish:
+    post:
+      tags: [Control Plane - Matches]
+      summary: Mark match as finished
+      operationId: finishClusterMatch
+      parameters:
+        - name: matchId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Match finished
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CPMatchResponse'
+        '404':
+          description: Match not found
+
+  /api/matches/{matchId}/players:
+    put:
+      tags: [Control Plane - Matches]
+      summary: Update player count
+      operationId: updateMatchPlayerCount
+      parameters:
+        - name: matchId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: count
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Player count updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CPMatchResponse'
+
+  # ==================== CONTROL PLANE: MODULES ====================
+  /cp/api/modules:
+    get:
+      tags: [Control Plane - Modules]
+      summary: List all modules in registry
+      operationId: listRegistryModules
+      responses:
+        '200':
+          description: All modules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CPModuleResponse'
+    post:
+      tags: [Control Plane - Modules]
+      summary: Upload module to registry
+      operationId: uploadRegistryModule
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                version:
+                  type: string
+                description:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+              required:
+                - name
+                - version
+                - file
+      responses:
+        '201':
+          description: Module uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CPModuleResponse'
+
+  /cp/api/modules/{name}:
+    get:
+      tags: [Control Plane - Modules]
+      summary: List module versions
+      operationId: listModuleVersions
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Module versions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CPModuleResponse'
+
+  /cp/api/modules/{name}/{version}:
+    get:
+      tags: [Control Plane - Modules]
+      summary: Get module metadata
+      operationId: getModuleMetadata
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Module metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CPModuleResponse'
+        '404':
+          description: Module not found
+    delete:
+      tags: [Control Plane - Modules]
+      summary: Delete module version
+      operationId: deleteModuleVersion
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Module deleted
+        '404':
+          description: Module not found
+
+  /cp/api/modules/{name}/{version}/download:
+    get:
+      tags: [Control Plane - Modules]
+      summary: Download module JAR
+      operationId: downloadModuleJar
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Module JAR
+          content:
+            application/java-archive:
               schema:
                 type: string
                 format: binary
         '404':
-          description: GUI client not available
+          description: Module not found
 
-  /api/gui/download/jar:
-    get:
-      tags: [GUI]
-      summary: Download GUI JAR only
-      description: Downloads just the GUI JAR without auto-configuration
-      operationId: downloadGuiJar
+  /cp/api/modules/{name}/{version}/distribute:
+    post:
+      tags: [Control Plane - Modules]
+      summary: Distribute module to all nodes
+      operationId: distributeModuleToAll
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
         '200':
-          description: GUI JAR file
+          description: Distribution result
           content:
-            application/octet-stream:
+            application/json:
               schema:
-                type: string
-                format: binary
+                $ref: '#/components/schemas/DistributionResult'
         '404':
-          description: GUI client not available
+          description: Module not found
+
+  /cp/api/modules/{name}/{version}/distribute/{nodeId}:
+    post:
+      tags: [Control Plane - Modules]
+      summary: Distribute module to specific node
+      operationId: distributeModuleToNode
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/nodeId'
+      responses:
+        '200':
+          description: Distribution result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DistributionResult'
+        '404':
+          description: Module or node not found
+
+  # ==================== CONTROL PLANE: AUTOSCALER ====================
+  /api/autoscaler/recommendation:
+    get:
+      tags: [Control Plane - Autoscaler]
+      summary: Get scaling recommendation
+      operationId: getScalingRecommendation
+      responses:
+        '200':
+          description: Scaling recommendation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScalingRecommendation'
+
+  /api/autoscaler/acknowledge:
+    post:
+      tags: [Control Plane - Autoscaler]
+      summary: Acknowledge scaling action
+      operationId: acknowledgeScaling
+      responses:
+        '204':
+          description: Acknowledged
+
+  /api/autoscaler/status:
+    get:
+      tags: [Control Plane - Autoscaler]
+      summary: Get autoscaler status
+      operationId: getAutoscalerStatus
+      responses:
+        '200':
+          description: Autoscaler status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoscalerStatus'
+
+  # ==================== CONTROL PLANE: DASHBOARD ====================
+  /api/dashboard/overview:
+    get:
+      tags: [Control Plane - Dashboard]
+      summary: Get dashboard overview
+      operationId: getDashboardOverview
+      responses:
+        '200':
+          description: Dashboard overview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardOverview'
+
+  /api/dashboard/nodes:
+    get:
+      tags: [Control Plane - Dashboard]
+      summary: Get paginated nodes
+      operationId: getDashboardNodes
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [HEALTHY, DRAINING]
+      responses:
+        '200':
+          description: Paginated nodes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedNodeResponse'
+
+  /api/dashboard/matches:
+    get:
+      tags: [Control Plane - Dashboard]
+      summary: Get paginated matches
+      operationId: getDashboardMatches
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, RUNNING, FINISHED]
+        - name: nodeId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated matches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedMatchResponse'
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   parameters:
+    containerId:
+      name: containerId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Container ID
     matchId:
       name: matchId
       in: path
@@ -582,6 +2354,31 @@ components:
       schema:
         type: integer
         format: int64
+      description: Match ID
+    playerId:
+      name: playerId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Player ID
+    userId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: User ID
+    roleId:
+      name: roleId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Role ID
     resourceId:
       name: resourceId
       in: path
@@ -589,75 +2386,236 @@ components:
       schema:
         type: integer
         format: int64
+      description: Resource ID
+    nodeId:
+      name: nodeId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Node ID
+    controlPlaneToken:
+      name: X-Control-Plane-Token
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Control plane authentication token
 
   schemas:
-    TickResponse:
-      type: object
-      properties:
-        tick:
-          type: integer
-          format: int64
-          description: Current simulation tick number
-      required:
-        - tick
-
-    PlayStatusResponse:
-      type: object
-      properties:
-        playing:
-          type: boolean
-          description: Whether auto-advance is active
-        tick:
-          type: integer
-          format: int64
-          description: Current tick number
-        intervalMs:
-          type: integer
-          format: int64
-          description: Tick interval in milliseconds (0 if stopped)
-      required:
-        - playing
-        - tick
-        - intervalMs
-
-    CommandRequest:
-      type: object
-      properties:
-        commandName:
-          type: string
-          description: Name of the command to execute
-        payload:
-          type: object
-          additionalProperties: true
-          description: Command parameters (varies by command)
-      required:
-        - commandName
-        - payload
-
-    CommandResponse:
+    # Health
+    HealthStatus:
       type: object
       properties:
         status:
           type: string
-          enum: [accepted]
-        commandName:
+          example: UP
+
+    # Authentication
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
           type: string
 
+    TokenResponse:
+      type: object
+      properties:
+        jwtToken:
+          type: string
+        username:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    # Users
+    UserRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        enabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    # Roles
+    RoleRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        includedRoles:
+          type: array
+          items:
+            type: string
+
+    RoleResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+        includedRoles:
+          type: array
+          items:
+            type: string
+
+    # Containers
+    ContainerRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        maxEntities:
+          type: integer
+          default: 10000
+        maxComponents:
+          type: integer
+          default: 100
+        maxCommandsPerTick:
+          type: integer
+          default: 1000
+        maxMemoryMb:
+          type: integer
+          default: 512
+        moduleJars:
+          type: array
+          items:
+            type: string
+        moduleScanDirectory:
+          type: string
+        moduleNames:
+          type: array
+          items:
+            type: string
+        aiNames:
+          type: array
+          items:
+            type: string
+
+    ContainerResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        status:
+          type: string
+          enum: [CREATED, STARTING, RUNNING, PAUSED, STOPPING, STOPPED]
+        tick:
+          type: integer
+          format: int64
+        matchCount:
+          type: integer
+        moduleCount:
+          type: integer
+
+    ContainerStatsResponse:
+      type: object
+      properties:
+        entityCount:
+          type: integer
+        maxEntities:
+          type: integer
+        usedMemoryBytes:
+          type: integer
+          format: int64
+        maxMemoryBytes:
+          type: integer
+          format: int64
+        jvmMaxMemoryBytes:
+          type: integer
+          format: int64
+        jvmUsedMemoryBytes:
+          type: integer
+          format: int64
+        matchCount:
+          type: integer
+        moduleCount:
+          type: integer
+
+    # Simulation
+    TickResponse:
+      type: object
+      properties:
+        currentTick:
+          type: integer
+          format: int64
+
+    PlayStatusResponse:
+      type: object
+      properties:
+        isPlaying:
+          type: boolean
+        currentTick:
+          type: integer
+          format: int64
+        interval:
+          type: integer
+          format: int64
+
+    # Matches
     MatchRequest:
       type: object
       properties:
         id:
           type: integer
           format: int64
-          description: Match ID (0 for auto-generated)
-          default: 0
+          description: Optional match ID (auto-generated if not provided)
         enabledModuleNames:
           type: array
           items:
             type: string
-          description: List of module names to enable for this match
-      required:
-        - enabledModuleNames
+        enabledAINames:
+          type: array
+          items:
+            type: string
 
     MatchResponse:
       type: object
@@ -665,11 +2623,108 @@ components:
         id:
           type: integer
           format: int64
+        containerId:
+          type: integer
+          format: int64
         enabledModuleNames:
           type: array
           items:
             type: string
+        enabledAINames:
+          type: array
+          items:
+            type: string
 
+    # Commands
+    CommandDefinition:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        module:
+          type: string
+        parameters:
+          type: array
+          items:
+            type: object
+
+    CommandRequest:
+      type: object
+      required:
+        - commandName
+      properties:
+        commandName:
+          type: string
+        parameters:
+          type: object
+          additionalProperties: true
+
+    # Sessions
+    SessionConnectRequest:
+      type: object
+      required:
+        - playerId
+      properties:
+        playerId:
+          type: integer
+          format: int64
+
+    SessionResponse:
+      type: object
+      properties:
+        playerId:
+          type: integer
+          format: int64
+        matchId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [CONNECTED, DISCONNECTED, ABANDONED]
+        connectedAt:
+          type: string
+          format: date-time
+        disconnectedAt:
+          type: string
+          format: date-time
+
+    # Players
+    PlayerRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+
+    PlayerResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+
+    JoinMatchRequest:
+      type: object
+      required:
+        - playerId
+      properties:
+        playerId:
+          type: integer
+          format: int64
+
+    JoinMatchResponse:
+      type: object
+      properties:
+        playerId:
+          type: integer
+          format: int64
+        matchId:
+          type: integer
+          format: int64
+
+    # Snapshots
     SnapshotResponse:
       type: object
       properties:
@@ -687,60 +2742,387 @@ components:
               type: array
               items:
                 type: number
-                format: float
-          description: |
-            Columnar ECS data organized by module.
-            Structure: { "ModuleName": { "COMPONENT_NAME": [value1, value2, ...] } }
-            Each array contains one value per entity, in entity order.
 
-    ModuleResponse:
+    DeltaSnapshotResponse:
       type: object
       properties:
-        name:
-          type: string
-          description: Module name (e.g., "SpawnModule")
-        flagComponentName:
-          type: string
-          nullable: true
-          description: Name of the module's flag component
-        enabledMatches:
+        matchId:
           type: integer
-          description: Number of matches with this module enabled
+          format: int64
+        fromTick:
+          type: integer
+          format: int64
+        toTick:
+          type: integer
+          format: int64
+        changedComponents:
+          type: object
+        addedEntities:
+          type: array
+          items:
+            type: integer
+            format: int64
+        removedEntities:
+          type: array
+          items:
+            type: integer
+            format: int64
+        changeCount:
+          type: integer
+        compressionRatio:
+          type: number
+          format: double
 
+    # Restore
+    RestoreResult:
+      type: object
+      properties:
+        matchId:
+          type: integer
+          format: int64
+        restoredTick:
+          type: integer
+          format: int64
+        success:
+          type: boolean
+        message:
+          type: string
+
+    # Metrics
+    MetricsResponse:
+      type: object
+      properties:
+        tickMetrics:
+          type: object
+        snapshotMetrics:
+          type: object
+        systemMetrics:
+          type: object
+        commandMetrics:
+          type: object
+
+    # Resources
     ResourceResponse:
       type: object
       properties:
-        id:
+        resourceId:
           type: integer
           format: int64
-        name:
+        resourceName:
           type: string
-        type:
+        resourceType:
           type: string
-          enum: [TEXTURE]
-        size:
-          type: integer
-          description: Size in bytes
 
-    GuiInfoResponse:
+    # Modules
+    ModuleResponse:
       type: object
       properties:
-        available:
-          type: boolean
-          description: Whether the GUI JAR is available for download
-        jarSizeBytes:
+        moduleName:
+          type: string
+        flagComponentName:
+          type: string
+        enabledMatches:
+          type: integer
+
+    # AI
+    AIResponse:
+      type: object
+      properties:
+        aiName:
+          type: string
+        enabledMatches:
+          type: integer
+
+    # Node
+    NodeMetricsDto:
+      type: object
+      properties:
+        containerCount:
+          type: integer
+        matchCount:
+          type: integer
+        cpuUsage:
+          type: number
+          format: double
+        memoryUsedMb:
           type: integer
           format: int64
-          description: Size of the JAR file in bytes
+        memoryMaxMb:
+          type: integer
+          format: int64
+
+    NodeStatusResponse:
+      type: object
+      properties:
+        nodeId:
+          type: string
+        registered:
+          type: boolean
+
+    # Control Plane schemas
+    NodeRegistrationRequest:
+      type: object
+      required:
+        - nodeId
+        - advertiseAddress
+        - capacity
+      properties:
+        nodeId:
+          type: string
+        advertiseAddress:
+          type: string
+        capacity:
+          $ref: '#/components/schemas/NodeCapacityDto'
+
+    HeartbeatRequest:
+      type: object
+      required:
+        - metrics
+      properties:
+        metrics:
+          $ref: '#/components/schemas/NodeMetricsDto'
+
+    NodeCapacityDto:
+      type: object
+      properties:
+        maxContainers:
+          type: integer
+
+    CPNodeResponse:
+      type: object
+      properties:
+        nodeId:
+          type: string
+        advertiseAddress:
+          type: string
+        status:
+          type: string
+          enum: [HEALTHY, DRAINING]
+        capacity:
+          $ref: '#/components/schemas/NodeCapacityDto'
+        metrics:
+          $ref: '#/components/schemas/NodeMetricsDto'
+        registeredAt:
+          type: string
+          format: date-time
+        lastHeartbeat:
+          type: string
+          format: date-time
+        availableCapacity:
+          type: integer
+
+    ClusterStatus:
+      type: object
+      properties:
+        totalNodes:
+          type: integer
+        healthyNodes:
+          type: integer
+        drainingNodes:
+          type: integer
+        totalCapacity:
+          type: integer
+        usedCapacity:
+          type: integer
+        averageSaturation:
+          type: number
+          format: double
+
+    CPCreateMatchRequest:
+      type: object
+      required:
+        - moduleNames
+      properties:
+        moduleNames:
+          type: array
+          items:
+            type: string
+        preferredNodeId:
+          type: string
+
+    CPMatchResponse:
+      type: object
+      properties:
+        matchId:
+          type: string
+        nodeId:
+          type: string
+        containerId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [PENDING, RUNNING, FINISHED]
+        createdAt:
+          type: string
+          format: date-time
+        moduleNames:
+          type: array
+          items:
+            type: string
+        advertiseAddress:
+          type: string
+        websocketUrl:
+          type: string
+        playerCount:
+          type: integer
+
+    CPModuleResponse:
+      type: object
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+        description:
+          type: string
         fileName:
           type: string
-          description: Name of the download file
+        fileSize:
+          type: integer
+          format: int64
+        checksum:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+        uploadedBy:
+          type: string
         downloadUrl:
           type: string
-          description: Relative URL to download the GUI
-        configuredServerUrl:
+
+    DistributionResult:
+      type: object
+      properties:
+        moduleName:
           type: string
-          description: Server URL that will be pre-configured in the download
-        usageHint:
+        moduleVersion:
           type: string
-          description: Instructions for running the GUI
+        nodesUpdated:
+          type: integer
+        targetNode:
+          type: string
+
+    ScalingRecommendation:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [SCALE_UP, SCALE_DOWN, NONE]
+        suggestedNodeCount:
+          type: integer
+        reason:
+          type: string
+        currentSaturation:
+          type: number
+          format: double
+        targetSaturation:
+          type: number
+          format: double
+        timestamp:
+          type: string
+          format: date-time
+
+    AutoscalerStatus:
+      type: object
+      properties:
+        inCooldown:
+          type: boolean
+        lastRecommendation:
+          $ref: '#/components/schemas/ScalingRecommendation'
+
+    DashboardOverview:
+      type: object
+      properties:
+        clusterHealth:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: [HEALTHY, DEGRADED, CRITICAL]
+            healthyNodes:
+              type: integer
+            totalNodes:
+              type: integer
+        nodes:
+          type: object
+          properties:
+            total:
+              type: integer
+            healthy:
+              type: integer
+            draining:
+              type: integer
+        matches:
+          type: object
+          properties:
+            total:
+              type: integer
+            running:
+              type: integer
+            pending:
+              type: integer
+        capacity:
+          type: object
+          properties:
+            total:
+              type: integer
+            used:
+              type: integer
+            available:
+              type: integer
+            saturationPercent:
+              type: number
+              format: double
+        autoscaler:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            lastAction:
+              type: string
+            recommendation:
+              type: string
+        generatedAt:
+          type: string
+          format: date-time
+
+    PagedNodeResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CPNodeResponse'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalItems:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrevious:
+          type: boolean
+
+    PagedMatchResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CPMatchResponse'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalItems:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrevious:
+          type: boolean

@@ -18,12 +18,11 @@
         <module>entity-module</module>
 <!--        <module>health-module</module>-->
         <module>rendering-module</module>
-        <module>rigid-body-module</module>
+        <module>physics-module</module>
 <!--        <module>box-collider-module</module>-->
 <!--        <module>projectile-module</module>-->
 <!--        <module>items-module</module>-->
 <!--        <module>move-module</module>-->
-        <module>grid-map-module</module>
     </modules>
 
     <properties>

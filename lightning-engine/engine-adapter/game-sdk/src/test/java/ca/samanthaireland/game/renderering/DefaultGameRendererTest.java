@@ -23,7 +23,7 @@
 
 package ca.samanthaireland.game.renderering;
 
-import ca.samanthaireland.engine.rendering.testing.headless.HeadlessWindow;
+import ca.samanthaireland.lightning.engine.rendering.testing.headless.HeadlessWindow;
 import ca.samanthaireland.game.domain.ControlSystem;
 import ca.samanthaireland.game.domain.Sprite;
 import org.junit.jupiter.api.BeforeEach;

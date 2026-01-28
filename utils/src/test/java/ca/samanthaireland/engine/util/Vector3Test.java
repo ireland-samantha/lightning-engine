@@ -20,7 +20,7 @@
  * SOFTWARE.
  */
 
-package ca.samanthaireland.engine.util;
+package ca.samanthaireland.lightning.engine.util;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

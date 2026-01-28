@@ -5,7 +5,7 @@
 
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import type {
-    AIData, CommandData, ContainerData, ContainerStatsData, CreateContainerRequest, CreateRoleRequest, CreateUserRequest, DeltaSnapshotData, HistorySummary, LoginResponse, MatchData, MatchHistorySummary, ModuleData, PlayerData,
+    AIData, CommandData, ComponentDataResponse, ContainerData, ContainerMetricsData, ContainerStatsData, CreateContainerRequest, CreateRoleRequest, CreateUserRequest, DeltaSnapshotData, HistorySummary, LoginResponse, MatchData, MatchHistorySummary, ModuleData, ModuleDataResponse, PlayerData,
     PlayerMatchData, ResourceData, RoleData, SessionData, SnapshotData, UserData
 } from "../../services/api";
 
@@ -27,6 +27,8 @@ export type {
     AIData,
     ResourceData,
     SnapshotData,
+    ComponentDataResponse,
+    ModuleDataResponse,
 };
 
 interface CreateMatchRequest {
@@ -209,6 +211,21 @@ export const apiSlice = createApi({
     getContainerStats: builder.query<ContainerStatsData, number>({
       query: (id) => `/containers/${id}/stats`,
       providesTags: (_, __, id) => [{ type: "Container", id: `STATS_${id}` }],
+    }),
+
+    getContainerMetrics: builder.query<ContainerMetricsData, number>({
+      query: (id) => `/containers/${id}/metrics`,
+      providesTags: (_, __, id) => [{ type: "Container", id: `METRICS_${id}` }],
+    }),
+
+    resetContainerMetrics: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `/containers/${id}/metrics/reset`,
+        method: "POST",
+      }),
+      invalidatesTags: (_, __, id) => [
+        { type: "Container", id: `METRICS_${id}` },
+      ],
     }),
 
     // =========================================================================
@@ -789,6 +806,8 @@ export const {
   useStopContainerAutoAdvanceMutation,
   useGetContainerTickQuery,
   useGetContainerStatsQuery,
+  useGetContainerMetricsQuery,
+  useResetContainerMetricsMutation,
   // Matches
   useGetContainerMatchesQuery,
   useCreateMatchInContainerMutation,

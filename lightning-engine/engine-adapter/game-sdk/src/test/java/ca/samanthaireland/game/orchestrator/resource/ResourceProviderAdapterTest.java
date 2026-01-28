@@ -23,7 +23,7 @@
 
 package ca.samanthaireland.game.orchestrator.resource;
 
-import ca.samanthaireland.engine.api.resource.adapter.ContainerAdapter;
+import ca.samanthaireland.lightning.engine.api.resource.adapter.ContainerAdapter;
 import ca.samanthaireland.game.orchestrator.ResourceDownloadEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -242,7 +242,7 @@ class ResourceProviderAdapterTest {
         @Override public void play(int intervalMs) throws IOException {}
         @Override public void stopAuto() throws IOException {}
         @Override public Optional<ContainerAdapter.SnapshotResponse> getSnapshot(long matchId) throws IOException { return Optional.empty(); }
-        @Override public ca.samanthaireland.engine.api.resource.adapter.ContainerCommands.MatchCommands forMatch(long matchId) { return null; }
+        @Override public ca.samanthaireland.lightning.engine.api.resource.adapter.ContainerCommands.MatchCommands forMatch(long matchId) { return null; }
         @Override public List<String> listModules() throws IOException { return List.of(); }
         @Override public List<String> listAI() throws IOException { return List.of(); }
         @Override public long createPlayer(Long playerId) throws IOException { return 0; }
@@ -251,9 +251,9 @@ class ResourceProviderAdapterTest {
         @Override public void connectSession(long matchId, long playerId) throws IOException {}
         @Override public void disconnectSession(long matchId, long playerId) throws IOException {}
         @Override public void joinMatch(long matchId, long playerId) throws IOException {}
-        @Override public ca.samanthaireland.engine.api.resource.adapter.dto.MatchHistorySummaryDto getMatchHistorySummary(long matchId) throws IOException { return null; }
-        @Override public List<ca.samanthaireland.engine.api.resource.adapter.dto.HistorySnapshotDto> getHistorySnapshots(long matchId, ca.samanthaireland.engine.api.resource.adapter.dto.HistoryQueryParams params) throws IOException { return List.of(); }
-        @Override public List<ca.samanthaireland.engine.api.resource.adapter.dto.HistorySnapshotDto> getLatestHistorySnapshots(long matchId, int limit) throws IOException { return List.of(); }
-        @Override public Optional<ca.samanthaireland.engine.api.resource.adapter.dto.HistorySnapshotDto> getHistorySnapshotAtTick(long matchId, long tick) throws IOException { return Optional.empty(); }
+        @Override public ca.samanthaireland.lightning.engine.api.resource.adapter.dto.MatchHistorySummaryDto getMatchHistorySummary(long matchId) throws IOException { return null; }
+        @Override public List<ca.samanthaireland.lightning.engine.api.resource.adapter.dto.HistorySnapshotDto> getHistorySnapshots(long matchId, ca.samanthaireland.lightning.engine.api.resource.adapter.dto.HistoryQueryParams params) throws IOException { return List.of(); }
+        @Override public List<ca.samanthaireland.lightning.engine.api.resource.adapter.dto.HistorySnapshotDto> getLatestHistorySnapshots(long matchId, int limit) throws IOException { return List.of(); }
+        @Override public Optional<ca.samanthaireland.lightning.engine.api.resource.adapter.dto.HistorySnapshotDto> getHistorySnapshotAtTick(long matchId, long tick) throws IOException { return Optional.empty(); }
     }
 }

@@ -1,0 +1,32 @@
+{
+  "containers": 1,
+  "matchesPerContainer": 2,
+  "container": {
+    "name": "debug"
+  },
+  "match": {
+    "modules": ["EntityModule", "RigidBodyModule"]
+  },
+  "player": {
+    "name": "TestPlayer"
+  },
+  "entities": [
+    {
+      "count": 10,
+      "entityType": 100,
+      "position": {
+        "x": 100,
+        "y": 100,
+        "z": 0
+      },
+      "rigidBody": {
+        "velocity": {
+          "x": 10,
+          "y": 10,
+          "z": 0
+        },
+        "mass": 1.0
+      }
+    }
+  ]
+}

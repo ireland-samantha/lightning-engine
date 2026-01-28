@@ -1,0 +1,119 @@
+{
+  "meta": {
+    "commit": "262a784",
+    "subject": "feat(control-plane): Add Lightning Control Plane with clean architecture",
+    "date": "2026-01-28T15:10:00-07:00",
+    "filesChanged": 862,
+    "reviewedAt": "2026-01-28T15:15:00-07:00"
+  },
+  "build": {
+    "passed": true,
+    "exitCode": 0,
+    "errors": 0,
+    "warnings": 4,
+    "testFailures": 0,
+    "unitTests": 133,
+    "integrationTests": 35
+  },
+  "findings": [
+    {
+      "id": "F001",
+      "severity": "high",
+      "category": "api-spec",
+      "file": "openapi.yaml",
+      "line": null,
+      "rule": "openapi-current",
+      "description": "New control plane REST endpoints added but openapi.yaml not updated",
+      "recommendation": "Add control plane endpoints to openapi.yaml: /api/autoscaler/*, /api/cluster/*, /api/dashboard/*, /api/matches/*, /api/modules/*, /api/nodes/*",
+      "autoFixable": false
+    },
+    {
+      "id": "F002",
+      "severity": "medium",
+      "category": "testing",
+      "file": "lightning-control-plane-core/",
+      "line": null,
+      "rule": "test-coverage",
+      "description": "17 interface/config files in control-plane-core lack direct unit tests",
+      "recommendation": "Service implementations have tests, but interfaces (MatchRegistry, NodeRepository, etc.) and config interfaces could benefit from contract tests",
+      "autoFixable": false
+    }
+  ],
+  "coverage": {
+    "productionFiles": 596,
+    "testFiles": 172,
+    "filesMissingTests": [
+      "Interfaces and config in control-plane-core (17 files)",
+      "Note: Service implementations ARE tested"
+    ],
+    "estimatedCoverage": "~75% - Core services have comprehensive tests"
+  },
+  "documentation": {
+    "readmeUpdated": true,
+    "readmeUpdateNeeded": false,
+    "claudeMdUpdated": true,
+    "claudeMdUpdateNeeded": false,
+    "docsUpdated": false,
+    "docsUpdateNeeded": false,
+    "javadocComplete": true,
+    "missingJavadoc": []
+  },
+  "apiSpec": {
+    "openapiUpdated": false,
+    "openapiUpdateNeeded": true,
+    "openapiValid": true,
+    "newEndpoints": [
+      "/api/autoscaler/*",
+      "/api/cluster/*",
+      "/api/dashboard/*",
+      "/api/matches/*",
+      "/api/modules/*",
+      "/api/nodes/*"
+    ],
+    "postmanUpdated": false,
+    "postmanUpdateNeeded": true
+  },
+  "commitMessage": {
+    "valid": true,
+    "issues": [],
+    "format": "feat(control-plane): Add Lightning Control Plane with clean architecture",
+    "checks": {
+      "typeValid": true,
+      "scopePresent": true,
+      "subjectFormat": true,
+      "subjectLength": true,
+      "bodyPresent": true
+    }
+  },
+  "architecture": {
+    "engineCoreClean": true,
+    "controlPlaneCoreClean": true,
+    "controlPlaneProviderOnly": true,
+    "noDeprecatedInNewCode": true,
+    "dtosAreRecords": true,
+    "noUpwardDependencies": true
+  },
+  "grade": {
+    "overall": "B+",
+    "breakdown": {
+      "build": "A",
+      "architecture": "A",
+      "codeQuality": "A",
+      "testCoverage": "B",
+      "documentation": "A",
+      "apiSpec": "C"
+    }
+  },
+  "summary": {
+    "critical": 0,
+    "high": 1,
+    "medium": 1,
+    "low": 0,
+    "passed": true
+  },
+  "recommendations": [
+    "HIGH: Update openapi.yaml with new control plane endpoints",
+    "MEDIUM: Consider adding Postman collection for control plane API",
+    "LOW: Add contract tests for repository/registry interfaces"
+  ]
+}

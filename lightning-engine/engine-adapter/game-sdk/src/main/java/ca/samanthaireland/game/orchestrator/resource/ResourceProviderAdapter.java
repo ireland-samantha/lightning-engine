@@ -23,7 +23,7 @@
 
 package ca.samanthaireland.game.orchestrator.resource;
 
-import ca.samanthaireland.engine.api.resource.adapter.ContainerAdapter;
+import ca.samanthaireland.lightning.engine.api.resource.adapter.ContainerAdapter;
 import ca.samanthaireland.game.orchestrator.ResourceDownloadEvent;
 
 import java.io.IOException;

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>ca.samanthaireland</groupId>
+        <artifactId>engine-ext-modules</artifactId>
+        <version>0.0.2-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>physics-module</artifactId>
+    <packaging>pom</packaging>
+    <name>Physics Module</name>
+    <description>Compound physics module combining GridMapModule and RigidBodyModule</description>
+
+    <modules>
+        <module>grid-map-module</module>
+        <module>rigid-body-module</module>
+    </modules>
+
+</project>

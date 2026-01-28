@@ -1,0 +1,35 @@
+{
+  "containers": 100,
+  "matchesPerContainer": 100,
+  "container": {
+    "name": "stress-test"
+  },
+  "match": {
+    "modules": ["EntityModule", "RigidBodyModule", "GridMapModule"]
+  },
+  "player": {
+    "name": "StressPlayer"
+  },
+  "entities": [
+    {
+      "count": 100,
+      "entityType": 100,
+      "position": {
+        "x": { "random": true, "min": 0, "max": 10000 },
+        "y": { "random": true, "min": 0, "max": 10000 },
+        "z": 0
+      },
+      "rigidBody": {
+        "velocity": {
+          "x": { "random": true, "min": -100, "max": 100 },
+          "y": { "random": true, "min": -100, "max": 100 },
+          "z": 0
+        },
+        "mass": 1.0,
+        "linearDrag": 0.05,
+        "angularDrag": 0.05,
+        "inertia": 1.0
+      }
+    }
+  ]
+}

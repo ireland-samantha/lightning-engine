@@ -69,12 +69,16 @@ describe("SnapshotPanel", () => {
     const mockSnapshot = {
       matchId: 1,
       tick: 42,
-      data: {
-        GameModule: {
-          POSITION_X: [100, 200, 300],
-          POSITION_Y: [50, 60, 70],
+      modules: [
+        {
+          name: "GameModule",
+          version: "1.0",
+          components: [
+            { name: "POSITION_X", values: [100, 200, 300] },
+            { name: "POSITION_Y", values: [50, 60, 70] },
+          ],
         },
-      },
+      ],
     };
 
     mockUseSnapshot.mockReturnValue({

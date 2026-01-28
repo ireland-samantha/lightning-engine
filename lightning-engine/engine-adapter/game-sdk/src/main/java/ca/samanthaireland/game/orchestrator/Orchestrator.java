@@ -23,7 +23,7 @@
 
 package ca.samanthaireland.game.orchestrator;
 
-import ca.samanthaireland.engine.api.resource.adapter.EngineClient;
+import ca.samanthaireland.lightning.engine.api.resource.adapter.EngineClient;
 import ca.samanthaireland.game.renderering.GameRenderer;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;

@@ -150,11 +150,31 @@ export interface SimulationStatus {
   intervalMs?: number;
 }
 
+/**
+ * Component data within a snapshot module.
+ */
+export interface ComponentDataResponse {
+  name: string;
+  values: number[];
+}
+
+/**
+ * Module data within a snapshot, including version information.
+ */
+export interface ModuleDataResponse {
+  name: string;
+  version: string;
+  components: ComponentDataResponse[];
+}
+
+/**
+ * Snapshot data with module-based structure.
+ */
 export interface SnapshotData {
   matchId: number;
   tick: number;
-  data: Record<string, Record<string, unknown[]>>;
-  timestamp?: string;
+  modules: ModuleDataResponse[];
+  error?: string;
 }
 
 export interface DeltaSnapshotData {
@@ -270,6 +290,53 @@ export interface ContainerStatsData {
   jvmUsedMemoryBytes: number;
   matchCount: number;
   moduleCount: number;
+}
+
+export interface SystemMetricsData {
+  systemName: string;
+  executionTimeMs: number;
+  executionTimeNanos: number;
+  success: boolean;
+}
+
+export interface CommandMetricsData {
+  commandName: string;
+  executionTimeMs: number;
+  executionTimeNanos: number;
+  success: boolean;
+}
+
+export interface SnapshotMetricsData {
+  totalGenerations: number;
+  cacheHits: number;
+  cacheMisses: number;
+  incrementalUpdates: number;
+  fullRebuilds: number;
+  avgGenerationMs: number;
+  lastGenerationMs: number;
+  maxGenerationMs: number;
+  cacheHitRate: number;
+  incrementalRate: number;
+}
+
+export interface ContainerMetricsData {
+  containerId: number;
+  currentTick: number;
+  lastTickMs: number;
+  avgTickMs: number;
+  minTickMs: number;
+  maxTickMs: number;
+  totalTicks: number;
+  lastTickNanos: number;
+  avgTickNanos: number;
+  minTickNanos: number;
+  maxTickNanos: number;
+  totalEntities: number;
+  totalComponentTypes: number;
+  commandQueueSize: number;
+  snapshotMetrics?: SnapshotMetricsData;
+  lastTickSystems?: SystemMetricsData[];
+  lastTickCommands?: CommandMetricsData[];
 }
 
 // Legacy aliases for backward compatibility

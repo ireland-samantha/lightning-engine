@@ -4,7 +4,7 @@
  */
 
 import {
-    AdminPanelSettings as AdminIcon, Bolt as BoltIcon, BugReport as LogsIcon, CameraAlt as SnapshotIcon, Code as CommandsIcon, Dashboard as DashboardIcon, Dns as ContainersIcon, ExpandLess,
+    AdminPanelSettings as AdminIcon, Analytics as MetricsIcon, Bolt as BoltIcon, BugReport as LogsIcon, CameraAlt as SnapshotIcon, Code as CommandsIcon, Dashboard as DashboardIcon, Dns as ContainersIcon, ExpandLess,
     ExpandMore, Extension as ModulesIcon, Folder as ResourcesIcon, History as HistoryIcon, Logout as LogoutIcon, ManageAccounts as IAMIcon, Menu as MenuIcon, People as PeopleIcon, PersonOutline as PlayersIcon, Psychology as AIIcon, Security as SecurityIcon, Settings as SettingsIcon, Speed as TickIcon, SportsEsports as MatchesIcon, VpnKey as SessionsIcon
 } from "@mui/icons-material";
 import {
@@ -24,13 +24,16 @@ import HistoryPanel from "./components/HistoryPanel";
 import Login from "./components/Login";
 import LogsPanel from "./components/LogsPanel";
 import MatchesPanel from "./components/MatchesPanel";
+import MetricsPanel from "./components/MetricsPanel";
 import ModulesPanel from "./components/ModulesPanel";
+import NotificationProvider from "./components/NotificationProvider";
 import PlayersPanel from "./components/PlayersPanel";
 import ResourcesPanel from "./components/ResourcesPanel";
 import RolesPanel from "./components/RolesPanel";
 import SessionsPanel from "./components/SessionsPanel";
 import SnapshotPanel from "./components/SnapshotPanel";
 import UsersPanel from "./components/UsersPanel";
+import { useContainerErrors } from "./hooks/useContainerErrors";
 import {
     useGetContainerMatchesQuery, useGetContainersQuery
 } from "./store/api/apiSlice";
@@ -69,6 +72,9 @@ const AppContent: React.FC = () => {
       skip: selectedContainerId === null,
     },
   );
+
+  // Auto-subscribe to error stream for selected container
+  useContainerErrors();
 
   // Derived state
   const selectedContainer =
@@ -121,6 +127,7 @@ const AppContent: React.FC = () => {
     { id: "snapshot" as const, label: "Live Snapshot", icon: <SnapshotIcon /> },
     { id: "history" as const, label: "History", icon: <HistoryIcon /> },
     { id: "logs" as const, label: "Logs", icon: <LogsIcon /> },
+    { id: "metrics" as const, label: "Metrics", icon: <MetricsIcon /> },
     // Container-scoped configuration
     { id: "modules" as const, label: "Modules", icon: <ModulesIcon /> },
     { id: "ai" as const, label: "AI", icon: <AIIcon /> },
@@ -294,6 +301,8 @@ const AppContent: React.FC = () => {
         return <HistoryPanel />;
       case "logs":
         return <LogsPanel />;
+      case "metrics":
+        return <MetricsPanel />;
       case "matches":
         return <MatchesPanel />;
       case "players":
@@ -467,11 +476,11 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
 
-  if (!isAuthenticated) {
-    return <Login />;
-  }
-
-  return <AppContent />;
+  return (
+    <NotificationProvider>
+      {isAuthenticated ? <AppContent /> : <Login />}
+    </NotificationProvider>
+  );
 };
 
 export default App;

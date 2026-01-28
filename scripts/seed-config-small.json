@@ -1,0 +1,35 @@
+{
+  "containers": 5,
+  "matchesPerContainer": 10,
+  "container": {
+    "name": "test"
+  },
+  "match": {
+    "modules": ["EntityModule", "RigidBodyModule", "GridMapModule"]
+  },
+  "player": {
+    "name": "TestPlayer"
+  },
+  "entities": [
+    {
+      "count": 10,
+      "entityType": 100,
+      "position": {
+        "x": { "random": true, "min": 0, "max": 1000 },
+        "y": { "random": true, "min": 0, "max": 1000 },
+        "z": 0
+      },
+      "rigidBody": {
+        "velocity": {
+          "x": { "random": true, "min": -10, "max": 10 },
+          "y": { "random": true, "min": -10, "max": 10 },
+          "z": 0
+        },
+        "mass": 1.0,
+        "linearDrag": 0.1,
+        "angularDrag": 0.1,
+        "inertia": 1.0
+      }
+    }
+  ]
+}

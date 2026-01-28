@@ -23,8 +23,8 @@ COPY lightning-engine/webservice/quarkus-web-api/src/main/resources/META-INF/res
 # Copy module JARs for runtime loading
 RUN mkdir -p /app/modules
 COPY lightning-engine-extensions/modules/entity-module/target/*.jar ./modules/
-COPY lightning-engine-extensions/modules/grid-map-module/target/*.jar ./modules/
-COPY lightning-engine-extensions/modules/rigid-body-module/target/*.jar ./modules/
+COPY lightning-engine-extensions/modules/physics-module/grid-map-module/target/*.jar ./modules/
+COPY lightning-engine-extensions/modules/physics-module/rigid-body-module/target/*.jar ./modules/
 COPY lightning-engine-extensions/modules/rendering-module/target/*.jar ./modules/
 
 # Set proper permissions

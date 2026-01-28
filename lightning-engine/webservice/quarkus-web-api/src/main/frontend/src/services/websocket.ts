@@ -24,10 +24,31 @@
  * WebSocket client for real-time snapshot streaming.
  */
 
+/**
+ * Component data within a snapshot module.
+ */
+export interface ComponentDataResponse {
+  name: string;
+  values: number[];
+}
+
+/**
+ * Module data within a snapshot, including version information.
+ */
+export interface ModuleDataResponse {
+  name: string;
+  version: string;
+  components: ComponentDataResponse[];
+}
+
+/**
+ * Snapshot data with module-based structure.
+ */
 export interface SnapshotData {
   matchId: number;
   tick: number;
-  data: Record<string, Record<string, unknown[]>>;
+  modules: ModuleDataResponse[];
+  error?: string;
 }
 
 export type SnapshotListener = (snapshot: SnapshotData) => void;
