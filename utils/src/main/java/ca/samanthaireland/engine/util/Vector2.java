@@ -1,4 +1,4 @@
-package ca.samanthaireland.engine.util;
+package ca.samanthaireland.lightning.engine.util;
 
 public record Vector2(long x, long y) {
     private static final Vector2 ZERO = new Vector2(0, 0);

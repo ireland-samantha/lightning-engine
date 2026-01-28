@@ -1,0 +1,389 @@
+{
+  "info": {
+    "name": "Lightning Control Plane API",
+    "description": "REST API for Lightning Engine Control Plane - manages cluster nodes, matches, modules, and autoscaling.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8081",
+      "description": "Control Plane base URL"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "description": "X-Control-Plane-Token for authenticated endpoints"
+    }
+  ],
+  "item": [
+    {
+      "name": "Nodes",
+      "description": "Node registration and management",
+      "item": [
+        {
+          "name": "Register Node",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Control-Plane-Token",
+                "value": "{{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nodeId\": \"node-1\",\n  \"advertiseAddress\": \"http://localhost:8080\",\n  \"capacity\": {\n    \"maxContainers\": 100\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/nodes/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "nodes", "register"]
+            }
+          }
+        },
+        {
+          "name": "Send Heartbeat",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Control-Plane-Token",
+                "value": "{{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metrics\": {\n    \"containerCount\": 5,\n    \"matchCount\": 10,\n    \"cpuUsage\": 45.5,\n    \"memoryUsedMb\": 2048,\n    \"memoryMaxMb\": 8192\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/nodes/node-1/heartbeat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "nodes", "node-1", "heartbeat"]
+            }
+          }
+        },
+        {
+          "name": "Drain Node",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Control-Plane-Token",
+                "value": "{{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/nodes/node-1/drain",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "nodes", "node-1", "drain"]
+            }
+          }
+        },
+        {
+          "name": "Deregister Node",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Control-Plane-Token",
+                "value": "{{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/nodes/node-1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "nodes", "node-1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cluster",
+      "description": "Cluster status and node overview",
+      "item": [
+        {
+          "name": "List All Nodes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/cluster/nodes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cluster", "nodes"]
+            }
+          }
+        },
+        {
+          "name": "Get Node by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/cluster/nodes/node-1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cluster", "nodes", "node-1"]
+            }
+          }
+        },
+        {
+          "name": "Get Cluster Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/cluster/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "cluster", "status"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Matches",
+      "description": "Match routing and management",
+      "item": [
+        {
+          "name": "Create Match",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"moduleNames\": [\"EntityModule\", \"HealthModule\"],\n  \"preferredNodeId\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches", "create"]
+            }
+          }
+        },
+        {
+          "name": "Get Match",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/match-123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches", "match-123"]
+            }
+          }
+        },
+        {
+          "name": "Finish Match",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/match-123/finish",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches", "match-123", "finish"]
+            }
+          }
+        },
+        {
+          "name": "Delete Match",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/match-123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "matches", "match-123"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Modules",
+      "description": "Module registry and distribution",
+      "item": [
+        {
+          "name": "Upload Module",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "description",
+                  "value": "My game module",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/modules/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "modules", "upload"]
+            }
+          }
+        },
+        {
+          "name": "List Module Versions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/modules/EntityModule",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "modules", "EntityModule"]
+            }
+          }
+        },
+        {
+          "name": "Get Module Metadata",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/modules/EntityModule/1.0.0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "modules", "EntityModule", "1.0.0"]
+            }
+          }
+        },
+        {
+          "name": "Distribute Module to All",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/modules/EntityModule/1.0.0/distribute",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "modules", "EntityModule", "1.0.0", "distribute"]
+            }
+          }
+        },
+        {
+          "name": "Delete Module Version",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/modules/EntityModule/1.0.0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "modules", "EntityModule", "1.0.0"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Autoscaler",
+      "description": "Autoscaling recommendations and status",
+      "item": [
+        {
+          "name": "Get Scaling Recommendation",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/autoscaler/recommendation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "autoscaler", "recommendation"]
+            }
+          }
+        },
+        {
+          "name": "Acknowledge Recommendation",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/autoscaler/acknowledge",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "autoscaler", "acknowledge"]
+            }
+          }
+        },
+        {
+          "name": "Get Autoscaler Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/autoscaler/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "autoscaler", "status"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Dashboard overview and monitoring",
+      "item": [
+        {
+          "name": "Get Dashboard Overview",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/overview",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "overview"]
+            }
+          }
+        },
+        {
+          "name": "Get Paginated Nodes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/nodes?page=0&pageSize=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "nodes"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Paginated Matches",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/matches?page=0&pageSize=10&status=RUNNING",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "matches"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "RUNNING"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

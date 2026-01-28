@@ -1,4 +1,4 @@
-package ca.samanthaireland.engine.util;
+package ca.samanthaireland.lightning.engine.util;
 
 import java.util.UUID;
 

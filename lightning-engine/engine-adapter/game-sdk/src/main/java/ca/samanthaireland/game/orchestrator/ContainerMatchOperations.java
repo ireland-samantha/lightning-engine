@@ -22,7 +22,7 @@
 
 package ca.samanthaireland.game.orchestrator;
 
-import ca.samanthaireland.engine.api.resource.adapter.ContainerAdapter;
+import ca.samanthaireland.lightning.engine.api.resource.adapter.ContainerAdapter;
 
 import java.io.IOException;
 import java.util.List;

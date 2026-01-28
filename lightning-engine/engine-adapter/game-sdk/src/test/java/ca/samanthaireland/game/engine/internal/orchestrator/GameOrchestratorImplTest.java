@@ -23,7 +23,7 @@
 
 package ca.samanthaireland.game.engine.internal.orchestrator;
 
-import ca.samanthaireland.engine.api.resource.adapter.ModuleAdapter;
+import ca.samanthaireland.lightning.engine.api.resource.adapter.ModuleAdapter;
 import ca.samanthaireland.game.domain.ControlSystem;
 import ca.samanthaireland.game.domain.DomainObjectRegistry;
 import ca.samanthaireland.game.domain.GameScene;
