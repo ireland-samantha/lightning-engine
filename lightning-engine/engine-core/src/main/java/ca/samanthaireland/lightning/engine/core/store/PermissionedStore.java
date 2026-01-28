@@ -1,0 +1,78 @@
+/*
+ * Copyright (c) 2026 Samantha Ireland
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+
+package ca.samanthaireland.lightning.engine.core.store;
+
+import java.util.Collection;
+import java.util.Set;
+
+/**
+ * An {@link EntityComponentStore} with module-level permission checking.
+ *
+ * <p>This interface extends both the base store and {@link PermissionRegistry}
+ * to provide a store that enforces permission-based access control.
+ *
+ * <p>Permission enforcement is based on {@link PermissionLevel}:
+ * <ul>
+ *   <li>{@link PermissionLevel#PRIVATE} - Only the owning module can read or write</li>
+ *   <li>{@link PermissionLevel#READ} - Any module can read, only the owner can write</li>
+ *   <li>{@link PermissionLevel#WRITE} - Any module can read and write</li>
+ * </ul>
+ *
+ * <p>A module always has full access to its own components (as defined by the
+ * current module context), regardless of the permission level.
+ *
+ * @see PermissionComponent
+ * @see PermissionLevel
+ * @see PermissionRegistry
+ * @see EntityComponentStore
+ */
+public interface PermissionedStore extends EntityComponentStore, PermissionRegistry {
+
+    // ==================== Module Context ====================
+
+    /**
+     * Set the current module context.
+     *
+     * <p>The context defines which component IDs are "owned" by the currently
+     * executing module. Operations on owned components are always allowed.
+     *
+     * @param ownedComponentIds the set of component IDs owned by the current module
+     */
+    void setCurrentModuleContext(Set<Long> ownedComponentIds);
+
+    /**
+     * Clear the current module context.
+     *
+     * <p>After clearing, no components are considered "owned" and all access
+     * is subject to permission checks.
+     */
+    void clearCurrentModuleContext();
+
+    /**
+     * Get the current module's owned component IDs.
+     *
+     * @return the set of owned component IDs (never null)
+     */
+    Set<Long> getCurrentModuleContext();
+}

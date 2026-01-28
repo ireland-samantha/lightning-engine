@@ -1,0 +1,128 @@
+# Docker Compose configuration for Lightning Engine cluster mode
+# This file extends the base docker-compose.yml with control plane services
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.cluster.yml up
+#
+# Or with build:
+#   docker compose -f docker-compose.yml -f docker-compose.cluster.yml up --build
+
+services:
+  # Redis for control plane node registry
+  redis:
+    image: redis:7-alpine
+    container_name: lightning-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - lightning-network
+
+  # Control plane for cluster management
+  control-plane:
+    build:
+      context: ./lightning-control-plane
+      dockerfile: Dockerfile
+    image: samanthacireland/lightning-control-plane:0.0.2-SNAPSHOT
+    container_name: lightning-control-plane
+    ports:
+      - "8081:8081"
+    environment:
+      - JAVA_OPTS=-Dquarkus.http.host=0.0.0.0 -Xms128m -Xmx256m
+      - QUARKUS_LOG_LEVEL=INFO
+      - REDIS_HOSTS=redis://redis:6379
+      - CONTROL_PLANE_TOKEN=${CONTROL_PLANE_TOKEN:-dev-token}
+      - CONTROL_PLANE_REQUIRE_AUTH=true
+      - NODE_TTL_SECONDS=30
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/q/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - lightning-network
+
+  # Backend node 1 for cluster mode
+  backend-node-1:
+    build:
+      context: .
+      dockerfile: Dockerfile.prebuilt
+    image: samanthacireland/lightning-engine:0.0.2-prebuilt
+    container_name: lightning-engine-node-1
+    ports:
+      - "8080:8080"
+    environment:
+      - JAVA_OPTS=-Dquarkus.http.host=0.0.0.0 -Xms256m -Xmx512m
+      - QUARKUS_LOG_LEVEL=INFO
+      - QUARKUS_MONGODB_CONNECTION_STRING=mongodb://mongodb:27017
+      - SNAPSHOT_PERSISTENCE_ENABLED=true
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:-change-me-in-production-use-long-random-string}
+      - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:-admin}
+      # Control plane integration
+      - CONTROL_PLANE_URL=http://control-plane:8081
+      - CONTROL_PLANE_TOKEN=${CONTROL_PLANE_TOKEN:-dev-token}
+      - NODE_ID=node-1
+      - ADVERTISE_ADDRESS=http://backend-node-1:8080
+      - MAX_CONTAINERS=100
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      control-plane:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - lightning-network
+
+  # Backend node 2 for cluster mode (optional second node)
+  backend-node-2:
+    build:
+      context: .
+      dockerfile: Dockerfile.prebuilt
+    image: samanthacireland/lightning-engine:0.0.2-prebuilt
+    container_name: lightning-engine-node-2
+    ports:
+      - "8082:8080"
+    environment:
+      - JAVA_OPTS=-Dquarkus.http.host=0.0.0.0 -Xms256m -Xmx512m
+      - QUARKUS_LOG_LEVEL=INFO
+      - QUARKUS_MONGODB_CONNECTION_STRING=mongodb://mongodb:27017
+      - SNAPSHOT_PERSISTENCE_ENABLED=true
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:-change-me-in-production-use-long-random-string}
+      - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:-admin}
+      # Control plane integration
+      - CONTROL_PLANE_URL=http://control-plane:8081
+      - CONTROL_PLANE_TOKEN=${CONTROL_PLANE_TOKEN:-dev-token}
+      - NODE_ID=node-2
+      - ADVERTISE_ADDRESS=http://backend-node-2:8080
+      - MAX_CONTAINERS=100
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      control-plane:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - lightning-network

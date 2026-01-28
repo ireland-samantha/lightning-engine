@@ -23,8 +23,8 @@
 
 package ca.samanthaireland.game.renderering;
 
-import ca.samanthaireland.engine.rendering.render2d.Window;
-import ca.samanthaireland.engine.rendering.render2d.WindowFactory;
+import ca.samanthaireland.lightning.engine.rendering.render2d.Window;
+import ca.samanthaireland.lightning.engine.rendering.render2d.WindowFactory;
 import ca.samanthaireland.game.domain.ControlSystem;
 import ca.samanthaireland.game.orchestrator.SpriteSnapshotMapper;
 

@@ -23,10 +23,10 @@
 
 package ca.samanthaireland.game.renderering;
 
-import ca.samanthaireland.engine.rendering.render2d.KeyInputHandler;
-import ca.samanthaireland.engine.rendering.render2d.SpriteInputHandler;
-import ca.samanthaireland.engine.rendering.render2d.Window;
-import ca.samanthaireland.engine.rendering.render2d.WindowBuilder;
+import ca.samanthaireland.lightning.engine.rendering.render2d.KeyInputHandler;
+import ca.samanthaireland.lightning.engine.rendering.render2d.SpriteInputHandler;
+import ca.samanthaireland.lightning.engine.rendering.render2d.Window;
+import ca.samanthaireland.lightning.engine.rendering.render2d.WindowBuilder;
 import ca.samanthaireland.game.domain.ControlSystem;
 import ca.samanthaireland.game.domain.Sprite;
 import ca.samanthaireland.game.orchestrator.SpriteSnapshotMapper;
@@ -62,7 +62,7 @@ public class DefaultGameRenderer implements GameRenderer {
     private Consumer<Exception> errorHandler;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
-    private final Map<Long, ca.samanthaireland.engine.rendering.render2d.Sprite> renderingSpriteMap = new HashMap<>();
+    private final Map<Long, ca.samanthaireland.lightning.engine.rendering.render2d.Sprite> renderingSpriteMap = new HashMap<>();
     private final Map<Long, Sprite> gameSpriteMap = new HashMap<>();
     private final Set<Integer> pressedKeys = new HashSet<>();
 
@@ -152,7 +152,7 @@ public class DefaultGameRenderer implements GameRenderer {
             gameSpriteMap.put(gameSprite.getEntityId(), gameSprite);
 
             // Get or create rendering sprite
-            ca.samanthaireland.engine.rendering.render2d.Sprite renderingSprite =
+            ca.samanthaireland.lightning.engine.rendering.render2d.Sprite renderingSprite =
                     renderingSpriteMap.get(gameSprite.getEntityId());
 
             if (renderingSprite == null) {
@@ -174,7 +174,7 @@ public class DefaultGameRenderer implements GameRenderer {
             }
         }
         for (Long entityId : toRemove) {
-            ca.samanthaireland.engine.rendering.render2d.Sprite removed = renderingSpriteMap.remove(entityId);
+            ca.samanthaireland.lightning.engine.rendering.render2d.Sprite removed = renderingSpriteMap.remove(entityId);
             gameSpriteMap.remove(entityId);
             if (removed != null) {
                 window.removeSprite(removed);
@@ -182,9 +182,9 @@ public class DefaultGameRenderer implements GameRenderer {
         }
     }
 
-    private ca.samanthaireland.engine.rendering.render2d.Sprite createRenderingSprite(Sprite gameSprite) {
-        ca.samanthaireland.engine.rendering.render2d.Sprite sprite =
-                ca.samanthaireland.engine.rendering.render2d.Sprite.builder()
+    private ca.samanthaireland.lightning.engine.rendering.render2d.Sprite createRenderingSprite(Sprite gameSprite) {
+        ca.samanthaireland.lightning.engine.rendering.render2d.Sprite sprite =
+                ca.samanthaireland.lightning.engine.rendering.render2d.Sprite.builder()
                         .id((int) gameSprite.getEntityId())
                         .x((int) gameSprite.getX())
                         .y((int) gameSprite.getY())
@@ -201,7 +201,7 @@ public class DefaultGameRenderer implements GameRenderer {
     }
 
     private void updateRenderingSprite(
-            ca.samanthaireland.engine.rendering.render2d.Sprite renderingSprite,
+            ca.samanthaireland.lightning.engine.rendering.render2d.Sprite renderingSprite,
             Sprite gameSprite) {
         renderingSprite.setX((int) gameSprite.getX());
         renderingSprite.setY((int) gameSprite.getY());
@@ -215,7 +215,7 @@ public class DefaultGameRenderer implements GameRenderer {
         return new SpriteInputHandler() {
             @Override
             public boolean onMouseClick(
-                    ca.samanthaireland.engine.rendering.render2d.Sprite sprite,
+                    ca.samanthaireland.lightning.engine.rendering.render2d.Sprite sprite,
                     int button,
                     int action) {
                 if (controlSystem == null) return false;
@@ -232,7 +232,7 @@ public class DefaultGameRenderer implements GameRenderer {
             }
 
             @Override
-            public void onMouseEnter(ca.samanthaireland.engine.rendering.render2d.Sprite sprite) {
+            public void onMouseEnter(ca.samanthaireland.lightning.engine.rendering.render2d.Sprite sprite) {
                 if (controlSystem == null) return;
 
                 Sprite gameSprite = gameSpriteMap.get(entityId);
@@ -243,7 +243,7 @@ public class DefaultGameRenderer implements GameRenderer {
             }
 
             @Override
-            public void onMouseExit(ca.samanthaireland.engine.rendering.render2d.Sprite sprite) {
+            public void onMouseExit(ca.samanthaireland.lightning.engine.rendering.render2d.Sprite sprite) {
                 if (controlSystem == null) return;
 
                 Sprite gameSprite = gameSpriteMap.get(entityId);

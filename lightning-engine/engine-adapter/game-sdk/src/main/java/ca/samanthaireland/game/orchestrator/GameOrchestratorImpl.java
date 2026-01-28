@@ -23,8 +23,8 @@
 
 package ca.samanthaireland.game.orchestrator;
 
-import ca.samanthaireland.engine.api.resource.adapter.ContainerAdapter;
-import ca.samanthaireland.engine.api.resource.adapter.ModuleAdapter;
+import ca.samanthaireland.lightning.engine.api.resource.adapter.ContainerAdapter;
+import ca.samanthaireland.lightning.engine.api.resource.adapter.ModuleAdapter;
 import ca.samanthaireland.game.domain.SnapshotObserver;
 import ca.samanthaireland.game.backend.installation.GameFactory;
 import ca.samanthaireland.game.orchestrator.resource.CachingResourceProvider;
