@@ -7,54 +7,199 @@ description: Comprehensive self-review of git commits against CLAUDE.md project 
 
 Perform automated code review of commits against CLAUDE.md guidelines.
 
+## Arguments
+
+| Argument | Description | Examples |
+|----------|-------------|----------|
+| `<commit>` | Specific commit hash or reference | `HEAD`, `abc123`, `HEAD~3` |
+| `*` | All commits on current branch not on main | Reviews entire feature branch |
+| (none) | Defaults to `HEAD` | Reviews latest commit |
+
 ## Execution Flow
 
-1. **Load guidelines** from CLAUDE.md
-2. **Gather commit data** (diff, message, changed files)
-3. **Run build** and capture results
-4. **Analyze code** for violations and anti-patterns
-5. **Check test coverage** for new/modified code
-6. **Verify documentation** (README, docs/, Javadoc)
-7. **Validate API specs** (OpenAPI, Postman)
-8. **Generate report** to `self-review.json`
-9. **Address high-severity issues** interactively
-10. **Present summary** with actionable next steps
+1. **Parse arguments** and determine commit range
+2. **Load guidelines** from CLAUDE.md
+3. **Gather commit data** (diff, message, changed files)
+4. **Run build** and capture results
+5. **Analyze code** for violations and anti-patterns
+6. **Check test coverage** for new/modified code
+7. **Verify documentation** (README, docs/, Javadoc)
+8. **Validate API specs** (OpenAPI, Postman)
+9. **Generate report** to `self-review.json`
+10. **Address high-severity issues** interactively
+11. **Present summary** with actionable next steps
+
+---
+
+## Step 0: Parse Commit Argument
+
+Determine the commit range to review based on the argument provided.
+
+```bash
+# Usage: self-review [<commit>|*]
+COMMIT_ARG="${1:-HEAD}"
+
+if [[ "$COMMIT_ARG" == "*" ]]; then
+  # All commits on branch not on main
+  # Find the merge base with main
+  MERGE_BASE=$(git merge-base main HEAD)
+  COMMIT_RANGE="${MERGE_BASE}..HEAD"
+  DIFF_BASE="$MERGE_BASE"
+  
+  echo "Reviewing all commits since divergence from main:"
+  git log --oneline "$COMMIT_RANGE"
+  COMMIT_COUNT=$(git rev-list --count "$COMMIT_RANGE")
+  echo "Total commits to review: $COMMIT_COUNT"
+  
+  # For multi-commit review, we analyze cumulative changes
+  REVIEW_MODE="branch"
+else
+  # Single commit review
+  COMMIT_RANGE="$COMMIT_ARG"
+  DIFF_BASE="${COMMIT_ARG}~1"
+  REVIEW_MODE="single"
+  
+  echo "Reviewing single commit: $COMMIT_ARG"
+  git log -1 --oneline "$COMMIT_ARG"
+fi
+
+# Store for later steps
+echo "$REVIEW_MODE" > /tmp/review-mode.txt
+echo "$DIFF_BASE" > /tmp/diff-base.txt
+echo "$COMMIT_RANGE" > /tmp/commit-range.txt
+```
+
+### Branch Review Mode (`*`)
+
+When reviewing all branch commits:
+- Analyzes cumulative diff (all changes since diverging from main)
+- Validates each commit message individually
+- Produces single report covering all changes
+- Useful before merging feature branch to main
+
+### Single Commit Mode (default)
+
+When reviewing a specific commit:
+- Analyzes only that commit's changes
+- Validates that commit's message
+- Standard review workflow
 
 ---
 
 ## Step 1: Gather Commit Information
 
 ```bash
-# Commit hash and message
-git log -1 --format="Hash: %H%nSubject: %s%n%nBody:%n%b" HEAD
+REVIEW_MODE=$(cat /tmp/review-mode.txt)
+DIFF_BASE=$(cat /tmp/diff-base.txt)
+COMMIT_RANGE=$(cat /tmp/commit-range.txt)
 
-# Changed files with stats
-git show --stat HEAD
-
-# Full diff for analysis
-git diff HEAD~1 --unified=5
-
-# Just file paths (for iteration)
-git diff HEAD~1 --name-only
+if [[ "$REVIEW_MODE" == "branch" ]]; then
+  # Branch mode: cumulative changes
+  echo "=== Branch Review: Changes since main ==="
+  
+  # All commit messages for validation
+  git log --format="=== %H ===%n%s%n%b%n" "$COMMIT_RANGE" > /tmp/commit-messages.txt
+  
+  # Cumulative diff
+  git diff "$DIFF_BASE" --unified=5 > /tmp/full-diff.txt
+  
+  # Changed files (cumulative)
+  git diff "$DIFF_BASE" --name-only > /tmp/changed-files.txt
+  git diff "$DIFF_BASE" --stat
+  
+else
+  # Single commit mode
+  echo "=== Single Commit Review ==="
+  
+  # Commit message
+  git log -1 --format="Hash: %H%nSubject: %s%n%nBody:%n%b" "$COMMIT_RANGE" > /tmp/commit-messages.txt
+  cat /tmp/commit-messages.txt
+  
+  # Diff
+  git diff "$DIFF_BASE" --unified=5 > /tmp/full-diff.txt
+  
+  # Changed files
+  git diff "$DIFF_BASE" --name-only > /tmp/changed-files.txt
+  git show --stat "$COMMIT_RANGE"
+fi
 
 # Categorize changes
-git diff HEAD~1 --name-only | grep -E "^.+\.java$" > /tmp/changed-java.txt
-git diff HEAD~1 --name-only | grep -E "Test\.java$" > /tmp/changed-tests.txt
-git diff HEAD~1 --name-only | grep -E "src/main/java" | grep -v "Test\.java$" > /tmp/changed-production.txt
+cat /tmp/changed-files.txt | grep -E "^.+\.java$" > /tmp/changed-java.txt || true
+cat /tmp/changed-files.txt | grep -E "Test\.java$" > /tmp/changed-tests.txt || true
+cat /tmp/changed-files.txt | grep -E "src/main/java" | grep -v "Test\.java$" > /tmp/changed-production.txt || true
+
+echo ""
+echo "Files changed: $(wc -l < /tmp/changed-files.txt)"
+echo "Java files: $(wc -l < /tmp/changed-java.txt)"
+echo "Test files: $(wc -l < /tmp/changed-tests.txt)"
+echo "Production files: $(wc -l < /tmp/changed-production.txt)"
 ```
 
 ---
 
-## Step 2: Validate Commit Message
+## Step 2: Validate Commit Message(s)
 
 Format: `type(scope): subject`
 
-### Checklist
+### Checklist (per commit)
 - [ ] **Type valid:** `feat|fix|docs|style|refactor|test|chore`
 - [ ] **Scope present:** Module or component name (e.g., `container`, `match`, `ecs`)
 - [ ] **Subject format:** Imperative mood, lowercase start, no trailing period
 - [ ] **Subject length:** ≤ 72 characters
 - [ ] **Body content:** Explains "what" and "why" (if present)
+
+### Validation Script
+```bash
+REVIEW_MODE=$(cat /tmp/review-mode.txt)
+COMMIT_RANGE=$(cat /tmp/commit-range.txt)
+
+validate_commit_message() {
+  local hash="$1"
+  local subject="$2"
+  local issues=""
+  
+  # Check type
+  if ! echo "$subject" | grep -qE "^(feat|fix|docs|style|refactor|test|chore)\("; then
+    issues="${issues}Invalid or missing type; "
+  fi
+  
+  # Check scope
+  if ! echo "$subject" | grep -qE "^[a-z]+\([a-z-]+\):"; then
+    issues="${issues}Invalid or missing scope; "
+  fi
+  
+  # Check subject format (lowercase after colon, no period)
+  if echo "$subject" | grep -qE "\):\s*[A-Z]"; then
+    issues="${issues}Subject should start lowercase; "
+  fi
+  if echo "$subject" | grep -qE "\.$"; then
+    issues="${issues}Subject should not end with period; "
+  fi
+  
+  # Check length
+  if [[ ${#subject} -gt 72 ]]; then
+    issues="${issues}Subject exceeds 72 chars; "
+  fi
+  
+  if [[ -n "$issues" ]]; then
+    echo "❌ $hash: $issues"
+    echo "   Subject: $subject"
+  else
+    echo "✓ $hash: Valid"
+  fi
+}
+
+if [[ "$REVIEW_MODE" == "branch" ]]; then
+  echo "=== Validating All Commit Messages ==="
+  git log --format="%H %s" "$COMMIT_RANGE" | while read hash subject; do
+    validate_commit_message "$hash" "$subject"
+  done
+else
+  echo "=== Validating Commit Message ==="
+  read hash subject <<< $(git log -1 --format="%H %s" "$COMMIT_RANGE")
+  validate_commit_message "$hash" "$subject"
+fi
+```
 
 ### Examples
 ```
@@ -107,16 +252,20 @@ Verify clean architecture boundaries in changed files.
 
 ### Detection Commands
 ```bash
+DIFF_BASE=$(cat /tmp/diff-base.txt)
+
 # Framework leakage in engine-core
-for f in $(git diff HEAD~1 --name-only | grep "engine-core/.*\.java$"); do
-  grep -Hn "import io\.quarkus" "$f"
-  grep -Hn "import jakarta\." "$f" | grep -v "jakarta.validation"
-  grep -Hn "import com\.mongodb" "$f"
+for f in $(cat /tmp/changed-files.txt | grep "engine-core/.*\.java$"); do
+  echo "Checking: $f"
+  grep -Hn "import io\.quarkus" "$f" && echo "  ❌ Quarkus import in engine-core"
+  grep -Hn "import jakarta\." "$f" | grep -v "jakarta.validation" && echo "  ❌ Jakarta import in engine-core"
+  grep -Hn "import com\.mongodb" "$f" && echo "  ❌ MongoDB import in engine-core"
 done
 
 # Upward dependency in engine-internal
-for f in $(git diff HEAD~1 --name-only | grep "engine-internal/.*\.java$"); do
-  grep -Hn "import.*webservice" "$f"
+for f in $(cat /tmp/changed-files.txt | grep "engine-internal/.*\.java$"); do
+  echo "Checking: $f"
+  grep -Hn "import.*webservice" "$f" && echo "  ❌ Webservice import in engine-internal"
 done
 ```
 
@@ -305,16 +454,20 @@ If REST endpoints are added or modified, `openapi.yaml` must be updated.
 
 ### Detection
 ```bash
+DIFF_BASE=$(cat /tmp/diff-base.txt)
+
 # Check for new/modified endpoints
-ENDPOINT_CHANGES=$(git diff HEAD~1 -- "*.java" | grep -E "^\+.*@(GET|POST|PUT|DELETE|PATCH|Path)\(")
+ENDPOINT_CHANGES=$(git diff "$DIFF_BASE" -- "*.java" | grep -E "^\+.*@(GET|POST|PUT|DELETE|PATCH|Path)\(")
 
 if [[ -n "$ENDPOINT_CHANGES" ]]; then
   echo "Endpoint changes detected:"
   echo "$ENDPOINT_CHANGES"
   
   # Check if openapi.yaml was updated
-  if ! git diff HEAD~1 --name-only | grep -q "openapi.yaml"; then
-    echo "WARNING: Endpoints changed but openapi.yaml not updated"
+  if ! cat /tmp/changed-files.txt | grep -q "openapi.yaml"; then
+    echo "⚠ WARNING: Endpoints changed but openapi.yaml not updated"
+  else
+    echo "✓ openapi.yaml was updated"
   fi
 fi
 ```
@@ -343,14 +496,18 @@ If REST endpoints are added or modified, the Postman collection must be updated.
 
 ### Detection
 ```bash
+DIFF_BASE=$(cat /tmp/diff-base.txt)
+
 # Find Postman collection file
 POSTMAN_FILE=$(find . -name "*.postman_collection.json" -o -name "postman_collection.json" 2>/dev/null | head -1)
 
 if [[ -n "$ENDPOINT_CHANGES" ]] && [[ -n "$POSTMAN_FILE" ]]; then
   echo "Postman collection: $POSTMAN_FILE"
   
-  if ! git diff HEAD~1 --name-only | grep -q "postman"; then
-    echo "WARNING: Endpoints changed but Postman collection not updated"
+  if ! cat /tmp/changed-files.txt | grep -q "postman"; then
+    echo "⚠ WARNING: Endpoints changed but Postman collection not updated"
+  else
+    echo "✓ Postman collection was updated"
   fi
 fi
 ```
@@ -379,13 +536,17 @@ New exceptions must follow the project pattern.
 - [ ] Mapped in `EngineExceptionMapper`
 
 ```bash
+DIFF_BASE=$(cat /tmp/diff-base.txt)
+
 # Find new exception classes
-git diff HEAD~1 -- "*.java" | grep -E "^\+.*class \w+Exception"
+git diff "$DIFF_BASE" -- "*.java" | grep -E "^\+.*class \w+Exception"
 
 # Verify they extend EngineException
-for f in $(git diff HEAD~1 --name-only | grep "Exception.java$"); do
+for f in $(cat /tmp/changed-files.txt | grep "Exception.java$"); do
   if ! grep -q "extends EngineException" "$f"; then
-    echo "WARNING: $f does not extend EngineException"
+    echo "⚠ WARNING: $f does not extend EngineException"
+  else
+    echo "✓ $f extends EngineException"
   fi
 done
 ```
@@ -445,8 +606,15 @@ Create `self-review.json` in project root:
 ```json
 {
   "meta": {
-    "commit": "<hash>",
-    "subject": "<commit subject>",
+    "reviewMode": "single|branch",
+    "commitRange": "<hash or range>",
+    "commits": [
+      {
+        "hash": "<hash>",
+        "subject": "<subject>",
+        "messageValid": true
+      }
+    ],
     "date": "<ISO timestamp>",
     "filesChanged": 0,
     "reviewedAt": "<ISO timestamp>"
@@ -491,10 +659,6 @@ Create `self-review.json` in project root:
     "openapiValid": true,
     "postmanUpdated": false,
     "postmanUpdateNeeded": false
-  },
-  "commitMessage": {
-    "valid": true,
-    "issues": []
   },
   "grade": {
     "overall": "A",
@@ -545,6 +709,12 @@ For each CRITICAL or HIGH severity finding:
 
 ## Step 14: Present Summary
 
+```bash
+REVIEW_MODE=$(cat /tmp/review-mode.txt)
+COMMIT_RANGE=$(cat /tmp/commit-range.txt)
+```
+
+### Single Commit Summary
 ```
 ## Self-Review Summary
 
@@ -579,6 +749,56 @@ For each CRITICAL or HIGH severity finding:
 
 ### Verdict
 ✓ Ready to push | ⚠ Address <N> issues before push | ✗ Do not push
+```
+
+### Branch Review Summary (when using `*`)
+```
+## Branch Self-Review Summary
+
+**Branch:** <current branch>
+**Commits:** <count> commits since main
+**Range:** <merge-base>..<HEAD>
+**Grade:** <overall grade>
+
+### Commits Reviewed
+| Hash | Subject | Message Valid |
+|------|---------|---------------|
+| abc123 | feat(x): add feature | ✓ |
+| def456 | fix(y): fix bug | ✓ |
+
+### Build Status
+✓ Build passed | ✗ Build failed
+
+### Cumulative Changes
+- Files changed: <count>
+- Lines added: <count>
+- Lines removed: <count>
+
+### Findings (across all commits)
+- Critical: <count>
+- High: <count>
+- Medium: <count>  
+- Low: <count>
+
+### Coverage
+- Production files: <count>
+- Files with tests: <count>
+- Missing tests: <list or "None">
+
+### Documentation
+- README: ✓ Updated | ⚠ Update needed | ✓ No update needed
+- docs/: ✓ Updated | ⚠ Update needed | ✓ No update needed
+- Javadoc: ✓ Complete | ⚠ Incomplete
+- OpenAPI: ✓ Updated | ⚠ Update needed | ✓ No update needed
+- Postman: ✓ Updated | ⚠ Update needed | ✓ No update needed
+
+### Top Recommendations
+1. <highest priority action>
+2. <second priority action>
+3. <third priority action>
+
+### Verdict
+✓ Ready to merge to main | ⚠ Address <N> issues before merge | ✗ Do not merge
 ```
 
 ---
