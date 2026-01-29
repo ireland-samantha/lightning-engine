@@ -18,6 +18,55 @@
   ],
   "item": [
     {
+      "name": "Deploy",
+      "description": "CLI-friendly deployment API (v1)",
+      "item": [
+        {
+          "name": "Deploy Game",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"modules\": [\"EntityModule\", \"HealthModule\", \"GridMapModule\"],\n  \"preferredNodeId\": null,\n  \"autoStart\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/deploy",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "deploy"]
+            }
+          }
+        },
+        {
+          "name": "Get Deployment Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/deploy/node-1-42-7",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "deploy", "node-1-42-7"]
+            }
+          }
+        },
+        {
+          "name": "Undeploy",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/deploy/node-1-42-7",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "deploy", "node-1-42-7"]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Nodes",
       "description": "Node registration and management",
       "item": [

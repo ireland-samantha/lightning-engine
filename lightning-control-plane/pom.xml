@@ -17,6 +17,7 @@
 
     <properties>
         <quarkus.platform.version>3.30.3</quarkus.platform.version>
+        <hibernate-validator.version>9.0.0.Final</hibernate-validator.version>
         <maven.compiler.source>25</maven.compiler.source>
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -82,7 +83,12 @@
             <artifactId>quarkus-scheduler</artifactId>
         </dependency>
 
-        <!-- Bean Validation -->
+        <!-- Bean Validation - override Hibernate Validator version for Java 25 compatibility -->
+        <dependency>
+            <groupId>org.hibernate.validator</groupId>
+            <artifactId>hibernate-validator</artifactId>
+            <version>${hibernate-validator.version}</version>
+        </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-hibernate-validator</artifactId>

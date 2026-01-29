@@ -1,0 +1,14 @@
+# Binary
+lightning
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Test coverage
+coverage.out
+coverage.html
+
+# OS
+.DS_Store

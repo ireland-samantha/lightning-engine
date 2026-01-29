@@ -234,6 +234,44 @@ curl -H "X-Control-Plane-Token: YOUR_TOKEN" http://localhost:8081/api/nodes/...
 
 ## Control Plane Endpoints
 
+### Deploy API (v1)
+
+The primary CLI-facing endpoint for deploying games to the cluster.
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/api/v1/deploy` | Deploy a new game match | None |
+| GET | `/api/v1/deploy/{matchId}` | Get deployment status | None |
+| DELETE | `/api/v1/deploy/{matchId}` | Undeploy a match | None |
+
+#### Deploy Request
+
+```json
+{
+  "modules": ["EntityModule", "HealthModule"],
+  "preferredNodeId": "node-1",  // optional
+  "autoStart": true             // optional, defaults to true
+}
+```
+
+#### Deploy Response
+
+```json
+{
+  "matchId": "node-1-42-7",
+  "nodeId": "node-1",
+  "containerId": 42,
+  "status": "RUNNING",
+  "createdAt": "2026-01-28T10:30:00Z",
+  "modules": ["EntityModule", "HealthModule"],
+  "endpoints": {
+    "http": "http://192.168.1.10:8080/api/containers/42",
+    "websocket": "ws://192.168.1.10:8080/ws/containers/42/snapshots/node-1-42-7",
+    "commands": "ws://192.168.1.10:8080/containers/42/commands"
+  }
+}
+```
+
 ### Node Management
 
 | Method | Path | Description | Auth |
